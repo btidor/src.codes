@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DebianFS } from './debianFS';
+import { DebianFS, Definer } from './debianFS';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "debian-source-explorer" is now active!');
@@ -16,6 +16,13 @@ export function activate(context: vscode.ExtensionContext) {
 				'vscode.openFolder', vscode.Uri.parse('debian:/buster/'),
 			);
 		}),
+	);
+
+	context.subscriptions.push(
+		vscode.languages.registerDefinitionProvider(
+			{ scheme: 'debian' },
+			new Definer(),
+		),
 	);
 }
 
