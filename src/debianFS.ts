@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
+import { TextDecoder } from 'util';
 
 export class DNode implements vscode.FileStat {
     type: vscode.FileType;
@@ -18,7 +19,7 @@ export class DNode implements vscode.FileStat {
 }
 
 type Directory = [string, vscode.FileType][];
-type DebianUri = {package: string, version: string, subpath: string};
+type DebianUri = {package: string, subpath: string};
 
 const API_BASE = vscode.Uri.parse('https://sources.debian.org/api/src/');
 const FILE_BASE = vscode.Uri.parse('https://sources.debian.org/');
@@ -29,6 +30,12 @@ export class DebianFS implements vscode.FileSystemProvider {
     // TODO: cache expiry!
     private directoryCache = new Map<DebianUri, Directory>();
     private statCache = new Map<DebianUri, DNode>();
+    private context: vscode.ExtensionContext;
+    private root?: Directory;
+
+    constructor(context: vscode.ExtensionContext) {
+        this.context = context;
+    }
 
     private async getDirectory(uri: DebianUri): Promise<Directory> {
         let cached = this.directoryCache.get(uri);
@@ -36,7 +43,8 @@ export class DebianFS implements vscode.FileSystemProvider {
             return Promise.resolve(cached);
         }
 
-        let url = vscode.Uri.joinPath(API_BASE, uri.package, uri.version, uri.subpath).toString();
+        // TODO: proper version
+        let url = vscode.Uri.joinPath(API_BASE, uri.package, 'buster', uri.subpath).toString();
         console.log('Requesting URL:', url);
         // TODO: user-agent
         try {
@@ -69,7 +77,8 @@ export class DebianFS implements vscode.FileSystemProvider {
             return Promise.resolve(cached);
         }
 
-        let url = vscode.Uri.joinPath(API_BASE, uri.package, uri.version, uri.subpath).toString();
+        // TODO: proper version
+        let url = vscode.Uri.joinPath(API_BASE, uri.package, 'buster', uri.subpath).toString();
         console.log('Requesting URL:', url);
         // TODO: user-agent
         try {
@@ -102,9 +111,8 @@ export class DebianFS implements vscode.FileSystemProvider {
     private parseUri(uri: vscode.Uri): DebianUri {
         let parts = uri.path.split('/');
         return {
-            package: parts[2],
-            version: parts[1],
-            subpath: parts.slice(3).join('/'),
+            package: parts[1],
+            subpath: parts.slice(2).join('/'),
         };
     }
 
@@ -120,7 +128,10 @@ export class DebianFS implements vscode.FileSystemProvider {
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
         console.log('STAT', uri);
-        if (uri.path === '/buster' || uri.path === '/buster/fprintd' || uri.path === '/buster/ocaml') {
+        let parts = uri.path.split('/');
+        console.log(parts);
+        if (parts.length <= 2) {
+            // TODO: does not properly handle invalid package names
             return new DNode(vscode.FileType.Directory, 0);
         } else {
             return this.doStat(this.parseUri(uri));
@@ -129,12 +140,21 @@ export class DebianFS implements vscode.FileSystemProvider {
 
     readDirectory(uri: vscode.Uri): Directory | Thenable<Directory> {
         console.log('READDIR', uri);
-        if (uri.path === '/buster') {
-            return [
-                // TODO: dynamic package list
-                ['fprintd', vscode.FileType.Directory],
-                ['ocaml', vscode.FileType.Directory],
-            ];
+        if (uri.path === '/') {
+            if (this.root !== undefined) {
+                return this.root;
+            }
+
+            return vscode.workspace.fs.readFile(
+                vscode.Uri.joinPath(this.context.extensionUri, 'packages.txt'),
+            ).then(raw => {
+                let root = (new TextDecoder().decode(raw))
+                    .trim()
+                    .split("\n")
+                    .map(line => [line, vscode.FileType.Directory]) as Directory;
+                this.root = root;
+                return root;
+            });
         } else {
             return this.getDirectory(this.parseUri(uri));
         }
@@ -193,7 +213,7 @@ export class Definer implements vscode.DefinitionProvider {
                 return json.results.map((result: { package: string; path: string; line: number; }) => {
                     return new vscode.Location(
                         vscode.Uri.joinPath(
-                            vscode.Uri.parse('debian:/buster'),
+                            vscode.Uri.parse('debian:/'),
                             // TODO: handle search not scoping by version
                             result.package, result.path,
                         ),

@@ -6,14 +6,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.workspace.registerFileSystemProvider(
-			'debian', new DebianFS(), { isCaseSensitive: true, isReadonly: true },
+			'debian', new DebianFS(context), { isCaseSensitive: true, isReadonly: true },
 		),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('debian-source-explorer.join', _ => {
 			vscode.commands.executeCommand(
-				'vscode.openFolder', vscode.Uri.parse('debian:/buster/'),
+				'vscode.openFolder', vscode.Uri.parse('debian:/'),
 			);
 		}),
 	);
