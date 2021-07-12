@@ -1,4 +1,3 @@
-import { types } from 'util';
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 
@@ -23,6 +22,7 @@ type DebianUri = {package: string, version: string, subpath: string};
 
 const API_BASE = vscode.Uri.parse('https://sources.debian.org/api/src/');
 const FILE_BASE = vscode.Uri.parse('https://sources.debian.org/');
+const CTAG_BASE = vscode.Uri.parse('https://sources.debian.org/api/ctag/');
 
 export class DebianFS implements vscode.FileSystemProvider {
 
@@ -30,41 +30,40 @@ export class DebianFS implements vscode.FileSystemProvider {
     private directoryCache = new Map<DebianUri, Directory>();
     private statCache = new Map<DebianUri, DNode>();
 
-    private getDirectory(uri: DebianUri): Directory | Thenable<Directory> {
+    private async getDirectory(uri: DebianUri): Promise<Directory> {
         let cached = this.directoryCache.get(uri);
         if (cached !== undefined) {
-            return cached;
+            return Promise.resolve(cached);
         }
 
         let url = vscode.Uri.joinPath(API_BASE, uri.package, uri.version, uri.subpath).toString();
         console.log('Requesting URL:', url);
         // TODO: user-agent
-        return fetch(url)
-            .then(res => res.json())
-            .then(json => {
-                let contents = json.content.map((item: { type: string; name: string; }) => {
-                    let type: vscode.FileType;
-                    if (item.type === "file") {
-                        // TODO: handle symlinks (symlink_dest)
-                        type = vscode.FileType.File;
-                    } else if (item.type === "directory") {
-                        type = vscode.FileType.Directory;
-                    } else {
-                        console.error("Unknown item type: ", item.type);
-                        type = vscode.FileType.Unknown;
-                    }
-                    return [item.name, type];
-                });
-                this.directoryCache.set(uri, contents);
-                return contents;
-            })
-            .catch(err => {
-                console.error('Fetch failed:', err);
-                throw vscode.FileSystemError.Unavailable(err);
+        try {
+            const res = await fetch(url);
+            const json = await res.json();
+            let contents = json.content.map((item: { type: string; name: string; }) => {
+                let type: vscode.FileType;
+                if (item.type === "file") {
+                    // TODO: handle symlinks (symlink_dest)
+                    type = vscode.FileType.File;
+                } else if (item.type === "directory") {
+                    type = vscode.FileType.Directory;
+                } else {
+                    console.error("Unknown item type: ", item.type);
+                    type = vscode.FileType.Unknown;
+                }
+                return [item.name, type];
             });
+            this.directoryCache.set(uri, contents);
+            return contents;
+        } catch (err) {
+            console.error('Fetch failed:', err);
+            throw vscode.FileSystemError.Unavailable(err);
+        }
     }
 
-    private doStat(uri: DebianUri): Thenable<DNode> {
+    private async doStat(uri: DebianUri): Promise<DNode> {
         let cached = this.statCache.get(uri);
         if (cached !== undefined) {
             return Promise.resolve(cached);
@@ -73,29 +72,30 @@ export class DebianFS implements vscode.FileSystemProvider {
         let url = vscode.Uri.joinPath(API_BASE, uri.package, uri.version, uri.subpath).toString();
         console.log('Requesting URL:', url);
         // TODO: user-agent
-        return fetch(url)
-            .then(res => res.json())
-            .then(json => {
-                let type: vscode.FileType;
-                if (json.type === "file") {
-                    // TODO: handle symlinks (symlink_dest)
-                    type = vscode.FileType.File;
-                } else if (json.type === "directory") {
-                    type = vscode.FileType.Directory;
-                } else {
-                    console.error("Unknown item type: ", json.type);
-                    type = vscode.FileType.Unknown;
-                }
-                let node = new DNode(
-                    type, json.stat.size, json.raw_url,
+        try {
+            const res = await fetch(url);
+            const json = await res.json();
+            let type: vscode.FileType;
+            let node: DNode;
+            if (json.type === "file") {
+                // TODO: handle symlinks (symlink_dest)
+                node = new DNode(
+                    vscode.FileType.File, json.stat.size, json.raw_url
                 );
-                this.statCache.set(uri, node);
-                return node;
-            })
-            .catch(err => {
-                console.error('Fetch failed:', err);
-                throw vscode.FileSystemError.Unavailable(err);
-            });
+            } else if (json.type === "directory") {
+                node = new DNode(
+                    vscode.FileType.Directory, 0,
+                );
+            } else {
+                console.error("Unknown item type: ", json.type);
+                throw vscode.FileSystemError.Unavailable();
+            }
+            this.statCache.set(uri, node);
+            return node;
+        } catch (err) {
+            console.error('Fetch failed:', err);
+            throw vscode.FileSystemError.Unavailable(err);
+        }
 
     }
 
@@ -109,12 +109,12 @@ export class DebianFS implements vscode.FileSystemProvider {
     }
 
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = (
-        // Read-only file system, no change events
+        // Static read-only file system, no change events
         _listener => new vscode.Disposable(() => { })
     );
 
     watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        // Read-only file system, no change events
+        // Static read-only file system, no change events
         return new vscode.Disposable(() => { });
     }
 
@@ -171,5 +171,40 @@ export class DebianFS implements vscode.FileSystemProvider {
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
         throw new Error('File system is read-only.');
+    }
+}
+
+export class Definer implements vscode.DefinitionProvider {
+    provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
+        let wordRange = document.getWordRangeAtPosition(position /*, /[A-Za-z_][A-Za-z0-9_]*/);
+        if (wordRange === undefined) {
+            console.error('Could not extract word at position', position);
+            // TODO: is this the right error?
+            throw vscode.FileSystemError.Unavailable();
+        }
+        let word = document.getText(wordRange);
+
+        // TODO: escape word, cache results, user-agent, paginated results
+        let url = CTAG_BASE.toString() + '?ctag=' + word;
+        console.log('Querying URL:', url);
+        return fetch(url)
+            .then(res => res.json())
+            .then(json => {
+                return json.results.map((result: { package: string; path: string; line: number; }) => {
+                    return new vscode.Location(
+                        vscode.Uri.joinPath(
+                            vscode.Uri.parse('debian:/buster'),
+                            // TODO: handle search not scoping by version
+                            result.package, result.path,
+                        ),
+                        // TODO: figure out character offset?
+                        new vscode.Position(result.line - 1, 0),
+                    );
+                });
+            })
+            .catch(err => {
+                console.error('Fetch failed:', err);
+                throw vscode.FileSystemError.Unavailable(err);
+            });
     }
 }
