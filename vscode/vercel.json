@@ -1,0 +1,22 @@
+{
+  "redirects": [
+    {
+      "source": "/index.html",
+      "destination": "/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:;"
+        }
+      ]
+    }
+  ],
+  "github": {
+    "silent": true
+  }
+}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>src.codes</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+      />
+    <meta
+      id="vscode-workbench-web-configuration"
+      data-settings="{&quot;folderUri&quot;:{&quot;scheme&quot;:&quot;memfs&quot;,&quot;path&quot;:&quot;/&quot;}}"
+      />
+    <meta
+      id="vscode-workbench-builtin-extensions"
+      data-settings="[]"
+      />
+    <link
+      data-name="vs/workbench/workbench.web.api"
+      rel="stylesheet"
+      href="./vs/workbench/workbench.web.api.css"
+    />
+  </head>
+
+  <body aria-label="">
+    <script>
+      self.require = {
+          baseUrl: window.location.origin,
+          paths: {},
+      };
+    </script>
+    <script src="./vs/loader.js"></script>
+
+    <script src="./vs/workbench/workbench.web.api.nls.js"></script>
+    <script src="./vs/workbench/workbench.web.api.js"></script>
+    <script src="./vs/code/browser/workbench/workbench.js"></script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -veuf -o pipefail
+
+export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.59.1.tar.gz"
+
+mkdir vscode
+curl --location --no-progress-meter "$VSCODE_SOURCE" |
+  tar zx --directory=vscode --strip-components=1
+
+cd vscode
+
+yum groupinstall -y "Development Tools"
+yum install libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel
+
+npm install -g yarn
+yarn install
+
+# https://github.com/Felx-B/vscode-web
+sed -i 's/workbench\.desktop\.main/workbench.web.api/' build/gulpfile.vscode.js
+sed -i 's/buildfile\.workbenchDesktop/buildfile.workbenchWeb,buildfile.keyboardMaps/' build/gulpfile.vscode.js
+
+yarn gulp compile-build
+yarn gulp minify-vscode
+yarn compile-web
+
+cp ../index.html out-vscode-min/
