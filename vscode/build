@@ -2,26 +2,51 @@
 
 set -veuf -o pipefail
 
+export PROJECT_BASE="$(dirname $(dirname $(realpath $0)))"
+export BUILD_DIR="$PROJECT_BASE/build"
+
 export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.59.1.tar.gz"
 
-mkdir vscode
-curl --location --no-progress-meter "$VSCODE_SOURCE" |
-  tar zx --directory=vscode --strip-components=1
+# Install VS Code build dependencies
+if [ -n "$(command -v apt)" ]; then
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y -q \
+    build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev \
+    python-is-python3
+elif [ -n "$(command -v yum)" ]; then
+  yum groupinstall -y "Development Tools"
+  yum install -y libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel
+else
+  echo "Unknown package manager: can't find apt or yum"
+  exit 1
+fi
 
-cd vscode
+# Download VS Code
+if [ ! -d "$BUILD_DIR" ]; then
+  mkdir "$BUILD_DIR"
+  curl --location --no-progress-meter "$VSCODE_SOURCE" |
+    tar zx --directory="$BUILD_DIR" --strip-components=1
+fi
 
-yum groupinstall -y "Development Tools"
-yum install libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel
+cd "$BUILD_DIR"
 
-npm install -g yarn
-yarn install
+# Install yarn and dependencies
+if [ -n "$(command -v sudo)" ]; then
+  sudo npm install -g yarn
+  sudo yarn install
+else
+  # Vercel does not have or need sudo
+  npm install -g yarn
+  yarn install
+fi
 
+# Patch VS Code to produce a web artifact, see:
 # https://github.com/Felx-B/vscode-web
 sed -i 's/workbench\.desktop\.main/workbench.web.api/' build/gulpfile.vscode.js
 sed -i 's/buildfile\.workbenchDesktop/buildfile.workbenchWeb,buildfile.keyboardMaps/' build/gulpfile.vscode.js
 
+# Build VS Code; output is in $BUILD_DIR/out-vscode-min/
 yarn gulp compile-build
 yarn gulp minify-vscode
 yarn compile-web
 
-cp ../index.html out-vscode-min/
+cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-min/"
