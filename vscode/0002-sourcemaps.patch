@@ -1,0 +1,26 @@
+Instead of linking to source maps hosted on https://ticino.blob.core.windows.net
+(based on `sourceMappingURL`), just output the name of the source map assuming
+it's in the same directory as the minified JS, which it is.
+
+--- build/lib/optimize.js	2021-08-28 02:55:48.011125788 +0000
++++ build/lib/optimize.js	2021-08-28 03:12:20.842480004 +0000
+@@ -192,8 +192,6 @@
+             }
+             return sourcePath;
+         }), sourcemaps.write('./', {
+-            sourceMappingURL,
+-            sourceRoot: undefined,
+             includeContent: true,
+             addComment: true
+         }), gulp.dest(src + '-min'), (err) => cb(err));
+--- build/lib/optimize.ts	2021-08-28 02:55:44.239087856 +0000
++++ build/lib/optimize.ts	2021-08-28 03:13:07.679050584 +0000
+@@ -278,8 +278,6 @@
+ 				return sourcePath;
+ 			}),
+ 			sourcemaps.write('./', {
+-				sourceMappingURL,
+-				sourceRoot: undefined,
+ 				includeContent: true,
+ 				addComment: true
+ 			} as any),
