@@ -1,0 +1,19 @@
+{
+    "version": "1.59.1-src.codes",
+    "commit": "{{COMMIT}}",
+    "date": "{{DATE}}",
+	"nameShort": "src.codes",
+	"nameLong": "src.codes",
+	"reportIssueUrl": "https://github.com/btidor/src.codes/issues/new",
+	"licenseName": "MIT",
+	"extensionAllowedProposedApi": [
+		"ms-vscode.vscode-js-profile-flame",
+		"ms-vscode.vscode-js-profile-table",
+		"ms-vscode.remotehub",
+		"ms-vscode.remotehub-insiders",
+		"GitHub.remotehub",
+		"GitHub.remotehub-insiders"
+	],
+	"builtInExtensions": [
+	]
+}

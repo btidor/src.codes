@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -veuf -o pipefail
+set -veu -o pipefail
+shopt -s failglob
 
 export PROJECT_BASE="$(dirname $(dirname $(realpath $0)))"
 export BUILD_DIR="$PROJECT_BASE/build"
@@ -41,22 +42,54 @@ else
   yarn install
 fi
 
-# Patch VS Code to produce a web artifact, see:
-# https://github.com/Felx-B/vscode-web
-sed -i 's/workbench\.desktop\.main/workbench.web.api/' build/gulpfile.vscode.js
-sed -i 's/buildfile\.workbenchDesktop/buildfile.workbenchWeb,buildfile.keyboardMaps/' build/gulpfile.vscode.js
+# Download Web Playground extension
+if [ ! -d "$BUILD_DIR/extensions/vscode-web-playground" ]; then
+  mkdir "$BUILD_DIR/extensions/vscode-web-playground"
+  curl --location --no-progress-meter "$WEB_PLAYGROUND" |
+    tar zx --directory="$BUILD_DIR/extensions/vscode-web-playground" --strip-components=1
+fi
+
+# Apply patches
+for patch in "$PROJECT_BASE"/vscode/*.patch; do
+  if [ ! -f ".applied-$(basename $patch)" ]; then
+    echo "$(basename $patch): applying..."
+    patch --unified --strip=0 < "$patch"
+    touch ".applied-$(basename $patch)"
+  else
+    echo "$(basename $patch): already applied"
+  fi
+done
+
+# Insert product.json & extensions.json
+export PRODUCT_TS="$BUILD_DIR/src/vs/platform/product/common/product.ts"
+if [ ! -f "$PRODUCT_TS.orig" ]; then
+  cp "$PRODUCT_TS" "$PRODUCT_TS.orig"
+fi
+cp "$PRODUCT_TS.orig" "$PRODUCT_TS"
+
+"$PROJECT_BASE/vscode/inject-contents" "$PRODUCT_TS" \
+  "$PROJECT_BASE/vscode/product.json"
+sed -i "s/{{COMMIT}}/$(git rev-parse HEAD)/" "$PRODUCT_TS"
+sed -i "s/{{DATE}}/$(date -Isec)/" "$PRODUCT_TS"
+
+export EXTENSION_TS="$BUILD_DIR/src/vs/workbench/services/extensionManagement/browser/builtinExtensionsScannerService.ts"
+if [ ! -f "$EXTENSION_TS.orig" ]; then
+  cp "$EXTENSION_TS" "$EXTENSION_TS.orig"
+fi
+cp "$EXTENSION_TS.orig" "$EXTENSION_TS"
+
+find extensions/ -maxdepth 1 -mindepth 1 -type d | \
+  "$PROJECT_BASE/vscode/combine-extensions" > extensions.json
+"$PROJECT_BASE/vscode/inject-contents" "$EXTENSION_TS" extensions.json
 
 # Build VS Code; output is in $BUILD_DIR/out-vscode-min/
 yarn gulp compile-build
 yarn gulp minify-vscode
-yarn compile-web
+yarn gulp compile-web
 
 cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-min/"
 cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-min/"
 cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-min/remote"
-mkdir "$BUILD_DIR/out-vscode-min/extensions/vscode-web-playground"
-curl --location --no-progress-meter "$WEB_PLAYGROUND" |
-  tar zx --directory="$BUILD_DIR/out-vscode-min/extensions/vscode-web-playground" --strip-components=1
 
 # Vercel chokes on broken symlinks; remove them here
 find "$BUILD_DIR" -xtype l | xargs rm

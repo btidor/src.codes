@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+#
+# Given a list of extension directories, outputs a combined JSON metadata object
+# in the format expected by builtinExtensionsScannerService.ts
+
+import fileinput
+import json
+import os
+import re
+
+result = []
+for line in fileinput.input():
+    extn = line.strip()
+    if not os.path.exists(os.path.join(extn, "package.json")):
+        continue
+
+    with open(os.path.join(extn, "package.json")) as f:
+        pkg = json.load(f)
+
+    entry = {
+        "extensionPath": re.sub(r'^extensions/', '', extn),
+        "packageJSON": pkg,
+    }
+
+    if os.path.exists(os.path.join(extn, "package.nls.json")):
+        with open(os.path.join(extn, "package.nls.json")) as f:
+            entry["packageNLS"] = json.load(f)
+
+    result.append(entry)
+
+print(json.dumps(result, sort_keys=True, indent=2))
