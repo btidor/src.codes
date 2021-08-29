@@ -8,8 +8,6 @@ export BUILD_DIR="$PROJECT_BASE/build"
 
 export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.59.1.tar.gz"
 
-export WEB_PLAYGROUND="https://github.com/microsoft/vscode-web-playground/archive/689ac6cb2390dedef5ab6dcb119bef0b76eaa6c5.tar.gz"
-
 # Install VS Code build dependencies
 if [ -n "$(command -v apt)" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt install -y -q \
