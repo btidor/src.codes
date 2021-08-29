@@ -1,6 +1,6 @@
 {
-  "name": "debian-source-explorer",
-  "displayName": "Debian Source Explorer",
+  "name": "distro-source-explorer",
+  "displayName": "Distro Source Explorer",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -10,16 +10,16 @@
     "Other"
   ],
   "activationEvents": [
-    "onFileSystem:debian",
-    "onCommand:debian-source-explorer.join"
+    "onFileSystem:distro",
+    "onCommand:distro-source-explorer.join"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "debian-source-explorer.join",
+        "command": "distro-source-explorer.join",
         "title": "Join in Workspace",
-        "category": "Debian Source Explorer"
+        "category": "Distro Source Explorer"
       }
     ]
   },
