@@ -1,8 +1,12 @@
 import * as vscode from 'vscode';
-import fetch from 'node-fetch';
-import { TextDecoder } from 'util';
+import axios from 'axios';
 
-const CAT_BASE = vscode.Uri.parse('https://cat.src.codes/');``
+// We don't need to import TextDecoder, it's part of the Node runtime and the
+// browser environment. If we let TypeScript put in the explicit 'util' import,
+// it'll fail when running in the browser.
+declare var TextDecoder: any;
+
+const CAT_BASE = vscode.Uri.parse('https://cat.src.codes/');
 
 export class DNode implements vscode.FileStat {
     type: vscode.FileType;
@@ -43,7 +47,7 @@ export class DistroFS implements vscode.FileSystemProvider {
             return vscode.workspace.fs.readFile(
                 vscode.Uri.joinPath(this.context.extensionUri, 'stats.txt'),
             ).then(raw => {
-                let parts = (new TextDecoder().decode(raw))
+                let parts = (new TextDecoder().decode(raw) as string)
                     .trim()
                     .split("\n")
                     .map(line => line.split(" "))
@@ -75,7 +79,7 @@ export class DistroFS implements vscode.FileSystemProvider {
             return vscode.workspace.fs.readFile(
                 vscode.Uri.joinPath(this.context.extensionUri, 'packages.txt'),
             ).then(raw => {
-                let root = (new TextDecoder().decode(raw))
+                let root = (new TextDecoder().decode(raw) as string)
                     .trim()
                     .split("\n")
                     .map(line => [line, vscode.FileType.Directory]) as [string, vscode.FileType][];
@@ -88,7 +92,7 @@ export class DistroFS implements vscode.FileSystemProvider {
                 let search = uri.path.slice(1)
                     .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 let re = new RegExp("^" + search + "/[^/]+$")
-                return (new TextDecoder().decode(raw))
+                return (new TextDecoder().decode(raw) as string)
                     .trim()
                     .split("\n")
                     .map(line => line.split(" "))
@@ -115,7 +119,7 @@ export class DistroFS implements vscode.FileSystemProvider {
         return vscode.workspace.fs.readFile(
             vscode.Uri.joinPath(this.context.extensionUri, 'shasums.txt'),
         ).then(raw => {
-            let parts = (new TextDecoder().decode(raw))
+            let parts = (new TextDecoder().decode(raw) as string)
                 .trim()
                 .split("\n")
                 .map(line => line.split(" "))
@@ -134,10 +138,9 @@ export class DistroFS implements vscode.FileSystemProvider {
                 hash,
             );
             console.log('Fetching URL:', url);
-
-            return fetch(url.toString())
-                .then(res => res.arrayBuffer())
-                .then(arr => new Uint8Array(arr))
+            return axios
+                .get(url.toString(), {responseType: 'arraybuffer'})
+                .then(res => new Uint8Array(res.data))
                 .catch(err => {
                     console.error('Fetch failed:', err);
                     throw vscode.FileSystemError.Unavailable(err);
