@@ -30,6 +30,10 @@ if [ ! -d "$BUILD_DIR" ]; then
     tar zx --directory="$BUILD_DIR" --strip-components=1
 fi
 
+cd "$PROJECT_BASE/extension"
+yarn install
+yarn vscode:prepublish
+
 cd "$BUILD_DIR"
 
 # Install yarn and dependencies
@@ -42,12 +46,9 @@ else
   yarn install
 fi
 
-# Download Web Playground extension
-if [ ! -d "$BUILD_DIR/extensions/vscode-web-playground" ]; then
-  mkdir "$BUILD_DIR/extensions/vscode-web-playground"
-  curl --location --no-progress-meter "$WEB_PLAYGROUND" |
-    tar zx --directory="$BUILD_DIR/extensions/vscode-web-playground" --strip-components=1
-fi
+# Copy in the Explorer extension (built above)
+rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
+cp -r "$PROJECT_BASE/extension" "$BUILD_DIR/extensions/distro-source-explorer"
 
 # Apply patches
 for patch in "$PROJECT_BASE"/vscode/*.patch; do
