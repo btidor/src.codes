@@ -5,6 +5,7 @@
 	"nameShort": "src.codes",
 	"nameLong": "src.codes",
 	"reportIssueUrl": "https://github.com/btidor/src.codes/issues/new",
+	"urlProtocol": "dummy",
 	"licenseName": "MIT",
 	"extensionAllowedProposedApi": [
 		"ms-vscode.vscode-js-profile-flame",
