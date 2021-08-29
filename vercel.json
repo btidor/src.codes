@@ -11,7 +11,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:;"
+          "value": "default-src 'self' https://*.src.codes 'unsafe-inline' 'unsafe-eval' data:;"
         }
       ]
     }
