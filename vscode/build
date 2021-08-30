@@ -29,15 +29,15 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 cd "$PROJECT_BASE/extension"
-yarn install
-yarn vscode:prepublish
+npm install
+npm run vscode:prepublish
 
 cd "$BUILD_DIR"
 
 # Install yarn and dependencies
 if [ -n "$(command -v sudo)" ]; then
   sudo npm install -g yarn
-  sudo yarn install
+  yarn install
 else
   # Vercel does not have or need sudo
   npm install -g yarn
@@ -91,4 +91,4 @@ cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-min/"
 cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-min/remote"
 
 # Vercel chokes on broken symlinks; remove them here
-find "$BUILD_DIR" -xtype l | xargs rm
+find "$BUILD_DIR" -xtype l | xargs rm -f
