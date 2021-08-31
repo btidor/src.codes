@@ -14,3 +14,12 @@ RUN (curl -sL https://deb.nodesource.com/setup_14.x | bash) && \
 RUN DEBIAN_FRONTEND=noninteractive apt install -y -q \
     build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev \
     python-is-python3
+
+# Install development tools
+RUN apt install -y -q silversearcher-ag mysql-client && \
+    wget https://github.com/planetscale/cli/releases/download/v0.68.0/pscale_0.68.0_linux_amd64.deb && \
+    dpkg --install pscale_0.68.0_linux_amd64.deb
+
+# Install Go
+RUN (curl -sL https://golang.org/dl/go1.17.linux-amd64.tar.gz | tar xzC /usr/local) && \
+    (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
