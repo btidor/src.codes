@@ -31,11 +31,12 @@ type INode struct {
 }
 
 type NNode struct {
-	Name      string   `json:"name,omitempty"`
-	Type      NodeType `json:"type"`
-	Contents  []*NNode `json:"contents,omitempty"`
-	SHA256    string   `json:"sha256,omitempty"`
-	SymlinkTo string   `json:"symlink_to,omitempty"`
+	Name      string            `json:"name,omitempty"`
+	Type      NodeType          `json:"type"`
+	Contents  map[string]*NNode `json:"contents,omitempty"`
+	Size      uint64            `json:"size,omitempty"`
+	SHA256    string            `json:"sha256,omitempty"`
+	SymlinkTo string            `json:"symlink_to,omitempty"`
 }
 
 func IndexDirectory(directory string) ([]*INode, error) {
@@ -95,6 +96,8 @@ func IndexDirectory(directory string) ([]*INode, error) {
 }
 
 func UploadAndRecordFiles(deduped []*INode, directory string, controlHash string) {
+	// TODO: set up prod buckets
+	// TODO: handle concurrent threads uploading similar packages
 	var wg sync.WaitGroup
 	jobs := make(chan *INode)
 	for w := 0; w < 4; w++ {
@@ -166,8 +169,9 @@ func NestINodes(input []*INode) (*NNode, error) {
 	}
 
 	root := NNode{
-		Name: "",
-		Type: Directory,
+		Name:     "",
+		Type:     Directory,
+		Contents: make(map[string]*NNode),
 	}
 	dirLookup := make(map[string]*NNode)
 	dirLookup[""] = &root
@@ -178,6 +182,7 @@ func NestINodes(input []*INode) (*NNode, error) {
 		node := NNode{
 			Name:      file,
 			Type:      inode.Type,
+			Size:      inode.Size,
 			SHA256:    inode.SHA256,
 			SymlinkTo: inode.SymlinkTo,
 		}
@@ -185,8 +190,9 @@ func NestINodes(input []*INode) (*NNode, error) {
 		if !found {
 			return nil, fmt.Errorf("parent directory not found for path %#v", inode.Path)
 		}
-		parent.Contents = append(parent.Contents, &node)
+		parent.Contents[file] = &node
 		if inode.Type == Directory {
+			node.Contents = make(map[string]*NNode)
 			dirLookup[path+"/"] = &node
 		}
 	}
@@ -215,12 +221,18 @@ func UploadIndex(tree *NNode, pkg *APTPackage) (string, error) {
 	return slug, w.Close()
 }
 
+type JSONPackage struct {
+	Version string `json:"version"`
+	Hash    string `json:"hash"`
+}
+
 func UploadPackageList(pkgs *[]DBPackage, distribution string) error {
-	// TODO: consider zip-ing these?
-	list := make(map[string]string)
+	list := make(map[string]JSONPackage)
 	for _, p := range *pkgs {
-		path := fmt.Sprintf("%s_%s", p.Name, p.Version)
-		list[path] = p.IndexSlug
+		list[p.Name] = JSONPackage{
+			Version: p.Version,
+			Hash:    p.IndexSlug,
+		}
 	}
 
 	data, err := json.MarshalIndent(list, "", "  ")
@@ -232,7 +244,7 @@ func UploadPackageList(pkgs *[]DBPackage, distribution string) error {
 
 	obj := ls.Object(path)
 	opt := b2.WithAttrsOption(&b2.Attrs{
-		Info: map[string]string{"cache-control": "public, max-age=300"},
+		Info: map[string]string{"b2-cache-control": "public, max-age=300"},
 	})
 	w := obj.NewWriter(ctx, opt)
 	if _, err := w.Write(data); err != nil {

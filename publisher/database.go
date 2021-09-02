@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// TODO: make schema more storage-efficient
+
 const batchSize = 250
 
 func DeduplicateFiles(files []*INode) ([]*INode, error) {
