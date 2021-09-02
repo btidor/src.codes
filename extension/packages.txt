@@ -1,4 +1,0 @@
-libgusb
-mathjax
-htop
-zlib
