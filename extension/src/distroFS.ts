@@ -7,6 +7,20 @@ import axios from 'axios';
 declare var TextDecoder: any;
 
 const CAT_BASE = vscode.Uri.parse('https://cat.src.codes/');
+const LS_BASE = vscode.Uri.parse('https://ls.src.codes/');
+
+const DISTRO = 'hirsute';
+
+type Packages = {[name: string]: {version: string, hash: string}};
+
+type INode = {
+    name?: string,
+    type: 'file' | 'directory',
+    contents: {[name: string]: INode},
+    size: number;
+    sha256?: string,
+    symlink_to?: string,
+};
 
 export class DNode implements vscode.FileStat {
     type: vscode.FileType;
@@ -23,10 +37,54 @@ export class DNode implements vscode.FileStat {
 }
 
 export class DistroFS implements vscode.FileSystemProvider {
-    private context: vscode.ExtensionContext;
+    private packages?: Packages;
+    private packageCache: {[key: string]: INode};
 
-    constructor(context: vscode.ExtensionContext) {
-        this.context = context;
+    constructor() {
+        this.packageCache = {};
+    }
+
+    getPackages(): Thenable<Packages> {
+        if (this.packages !== undefined) {
+            return Promise.resolve(this.packages);
+        }
+        let url = vscode.Uri.joinPath(LS_BASE, DISTRO, "packages.json")
+        console.log('Fetching URL:', url);
+        return axios
+            .get(url.toString(), {responseType: 'json'})
+            .then(res => {
+                this.packages = res.data;
+                return res.data;
+            })
+            .catch(err => {
+                console.error('Fetch failed:', err);
+                throw vscode.FileSystemError.Unavailable(err);
+            });
+    };
+
+    getPackage(name: string): Thenable<INode> {
+        if (this.packageCache[name] !== undefined) {
+            return Promise.resolve(this.packageCache[name]);
+        }
+        return this.getPackages().then(packages => {
+            let entry = packages[name];
+            if (entry === undefined) {
+                throw vscode.FileSystemError.FileNotFound();
+            }
+            let filename = name + "_" + entry.version + "_" + entry.hash + ".json";
+            let url = vscode.Uri.joinPath(LS_BASE, DISTRO, filename);
+            console.log('Fetching URL:', url);
+            return axios
+                .get(url.toString(), {responseType: 'json'})
+                .then(res => {
+                    this.packageCache[name] = res.data;
+                    return res.data;
+                })
+                .catch(err => {
+                    console.error('Fetch failed:', err);
+                    throw vscode.FileSystemError.Unavailable(err);
+                })
+        })
     }
 
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = (
@@ -44,108 +102,109 @@ export class DistroFS implements vscode.FileSystemProvider {
         if (uri.path === '/') {
             return new DNode(vscode.FileType.Directory, 0);
         } else {
-            return vscode.workspace.fs.readFile(
-                vscode.Uri.joinPath(this.context.extensionUri, 'stats.txt'),
-            ).then(raw => {
-                let parts = (new TextDecoder().decode(raw) as string)
-                    .trim()
-                    .split("\n")
-                    .map(line => line.split(" "))
-                    .find(parts => parts[0] == uri.path.slice(1));
+            let pkgname = uri.path.split('/')[1];
+            return this.getPackage(pkgname)
+                .then(pkg => {
+                    var parts = uri.path.split('/').slice(2);
+                    var node = pkg;
+                    while (parts.length > 0) {
+                        let part = parts.shift() as string;
+                        node = node.contents[part];
+                        if (node === undefined) {
+                            // TODO: support symlinks
+                            throw vscode.FileSystemError.FileNotFound();
+                        }
+                    }
+                    var type;
+                    if (node.type == 'file') {
+                        type = vscode.FileType.File;
+                    } else if (node.type == 'directory') {
+                        type = vscode.FileType.Directory;
+                    } else {
+                        type = vscode.FileType.Unknown;
+                    }
 
-                if (parts === undefined) {
-                    throw vscode.FileSystemError.FileNotFound();
-                }
-
-                var type;
-                if (parts[3] == 'regular') {
-                    type = vscode.FileType.File;
-                } else if (parts[3] == 'directory') {
-                    type = vscode.FileType.Directory;
-                } else if (parts[3] == 'symbolic') {
-                    type = vscode.FileType.SymbolicLink;
-                } else {
-                    type = vscode.FileType.Unknown;
-                }
-                let size = Number(parts[2]);
-                return new DNode(type, size);
-            });
+                    return new DNode(type, node.size || 0);
+                });
         }
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
         console.log('READDIR', uri);
         if (uri.path === '/') {
-            return vscode.workspace.fs.readFile(
-                vscode.Uri.joinPath(this.context.extensionUri, 'packages.txt'),
-            ).then(raw => {
-                let root = (new TextDecoder().decode(raw) as string)
-                    .trim()
-                    .split("\n")
-                    .map(line => [line, vscode.FileType.Directory]) as [string, vscode.FileType][];
-                return root;
+            return this.getPackages().then(packages => {
+                return Object.keys(packages).map((name, _) => [name, vscode.FileType.Directory]);
             });
         } else {
-            return vscode.workspace.fs.readFile(
-                vscode.Uri.joinPath(this.context.extensionUri, 'stats.txt'),
-            ).then(raw => {
-                let search = uri.path.slice(1)
-                    .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                let re = new RegExp("^" + search + "/[^/]+$")
-                return (new TextDecoder().decode(raw) as string)
-                    .trim()
-                    .split("\n")
-                    .map(line => line.split(" "))
-                    .filter(parts => parts[0].match(re))
-                    .map(parts => {
+            let pkgname = uri.path.split('/')[1];
+            return this.getPackage(pkgname)
+                .then(pkg => {
+                    var parts = uri.path.split('/').slice(2);
+                    var node = pkg;
+                    while (parts.length > 0) {
+                        let part = parts.shift() as string;
+                        node = node.contents[part];
+                        if (node === undefined) {
+                            // TODO: support symlinks
+                            throw vscode.FileSystemError.FileNotFound();
+                        }
+                    }
+                    return Object.keys(node.contents).map(k => {
+                        let n = node.contents[k];
                         var type;
-                        if (parts[3] == 'regular') {
+                        if (n.type == 'file') {
                             type = vscode.FileType.File;
-                        } else if (parts[3] == 'directory') {
+                        } else if (n.type == 'directory') {
                             type = vscode.FileType.Directory;
-                        } else if (parts[3] == 'symbolic') {
-                            type = vscode.FileType.SymbolicLink;
                         } else {
                             type = vscode.FileType.Unknown;
                         }
-                        return [parts[0], type];
-                    });
-            });
+
+                        if (n.symlink_to !== undefined) {
+                            type |= vscode.FileType.SymbolicLink;
+                        }
+                        return [k, type];
+                    })
+                });
         }
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
         console.log('READFILE', uri);
-        return vscode.workspace.fs.readFile(
-            vscode.Uri.joinPath(this.context.extensionUri, 'shasums.txt'),
-        ).then(raw => {
-            let parts = (new TextDecoder().decode(raw) as string)
-                .trim()
-                .split("\n")
-                .map(line => line.split(" "))
-                .find(parts => parts[2] == uri.path.slice(1));
 
-            if (parts === undefined) {
-                throw vscode.FileSystemError.FileNotFound();
-            }
+        let pkgname = uri.path.split('/')[1];
+        return this.getPackage(pkgname)
+            .then(pkg => {
+                var parts = uri.path.split('/').slice(2);
+                var node = pkg;
+                while (parts.length > 0) {
+                    let part = parts.shift() as string;
+                    node = node.contents[part];
+                    if (node === undefined) {
+                        // TODO: support symlinks
+                        throw vscode.FileSystemError.FileNotFound();
+                    }
+                }
 
-            let hash = parts[0];
-            let url = vscode.Uri.joinPath(
-                CAT_BASE,
-                hash.slice(0, 1),
-                hash.slice(0, 2),
-                hash.slice(0, 3),
-                hash,
-            );
-            console.log('Fetching URL:', url);
-            return axios
+                if (node.sha256 === undefined) {
+                    // TODO: support symlinks
+                    throw vscode.FileSystemError.Unavailable();
+                }
+                let url = vscode.Uri.joinPath(
+                    CAT_BASE,
+                    node.sha256.slice(0, 2),
+                    node.sha256.slice(0, 4),
+                    node.sha256,
+                );
+                console.log('Fetching URL:', url);
+                return axios
                 .get(url.toString(), {responseType: 'arraybuffer'})
                 .then(res => new Uint8Array(res.data))
                 .catch(err => {
                     console.error('Fetch failed:', err);
                     throw vscode.FileSystemError.Unavailable(err);
                 });
-        });
+            });
     }
 
     // VS Code shouldn't try to call these methods...

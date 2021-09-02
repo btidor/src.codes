@@ -6,7 +6,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.workspace.registerFileSystemProvider(
-			'distro', new DistroFS(context), { isCaseSensitive: true, isReadonly: true },
+			'distro', new DistroFS(), { isCaseSensitive: true, isReadonly: true },
 		),
 	);
 
