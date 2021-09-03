@@ -10,15 +10,15 @@
     "Other"
   ],
   "activationEvents": [
-    "onFileSystem:distro",
-    "onCommand:distro-source-explorer.join"
+    "onFileSystem:srccodes",
+    "onCommand:src-codes-explore"
   ],
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "distro-source-explorer.join",
+        "command": "src-codes-explore",
         "title": "Join in Workspace",
         "category": "Distro Source Explorer"
       }

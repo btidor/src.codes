@@ -32,7 +32,7 @@ type INode struct {
 
 type NNode struct {
 	Name      string            `json:"name,omitempty"`
-	Type      NodeType          `json:"type"`
+	Type      NodeType          `json:"type",omitempty`
 	Contents  map[string]*NNode `json:"contents,omitempty"`
 	Size      uint64            `json:"size,omitempty"`
 	SHA256    string            `json:"sha256,omitempty"`
@@ -60,11 +60,6 @@ func IndexDirectory(directory string) ([]*INode, error) {
 				return err
 			}
 			node.SymlinkTo = strings.TrimPrefix(dest, directory)
-			if info.IsDir() {
-				node.Type = Directory
-			} else {
-				node.Type = File
-			}
 		} else {
 			// Regular file or directory
 			if info.IsDir() {
