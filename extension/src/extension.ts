@@ -1,22 +1,21 @@
 import * as vscode from 'vscode';
-import { DistroFS } from './distroFS';
+
+import SourceCodesFilesystem from './filesystem';
 
 export function activate(context: vscode.ExtensionContext) {
-	console.log('Congratulations, your extension "distro-source-explorer" is now active!');
-
 	context.subscriptions.push(
 		vscode.workspace.registerFileSystemProvider(
-			'distro', new DistroFS(), { isCaseSensitive: true, isReadonly: true },
+			'srccodes', new SourceCodesFilesystem('hirsute'), { isCaseSensitive: true, isReadonly: true },
 		),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('distro-source-explorer.join', _ => {
+		vscode.commands.registerCommand('src-codes-explore', _ => {
 			vscode.commands.executeCommand(
-				'vscode.openFolder', vscode.Uri.parse('distro:/'),
+				'vscode.openFolder', vscode.Uri.parse('srccodes:/hirsute (Ubuntu 21.04)'),
 			);
 		}),
 	);
 }
 
-export function deactivate() {}
+export function deactivate() { }
