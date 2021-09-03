@@ -60,36 +60,22 @@ func main() {
 	}
 	fmt.Println("Connected!")
 
+	// Configure temporary files directory (optional)
 	if t := os.Getenv("SRCCODES_TEMPDIR"); t != "" {
 		fmt.Printf("Using temporary directory: %v\n", t)
 		tempDir = t
 	}
 
-	b2cat := strings.Split(os.Getenv("B2_CAT_CREDENTIALS"), ":")
-	if len(b2cat) != 3 {
-		log.Fatal("Error: could not find/parse B2_CAT_CREDENTIALS")
-	}
-	b2c, err := b2.NewClient(ctx, b2cat[0], b2cat[1], b2.UserAgent("src.codes"))
-	if err != nil {
+	// Connect to Backblaze
+	if err := SetupBackblazeBucket("B2_CAT_CREDENTIALS", &cat); err != nil {
 		log.Fatal(err)
 	}
-	if cat, err = b2c.Bucket(ctx, b2cat[2]); err != nil {
+	if err := SetupBackblazeBucket("B2_LS_CREDENTIALS", &ls); err != nil {
 		log.Fatal(err)
 	}
 
-	b2ls := strings.Split(os.Getenv("B2_LS_CREDENTIALS"), ":")
-	if len(b2cat) != 3 {
-		log.Fatal("Error: could not find/parse B2_CAT_CREDENTIALS")
-	}
-	b2d, err := b2.NewClient(ctx, b2ls[0], b2ls[1], b2.UserAgent("src.codes"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if ls, err = b2d.Bucket(ctx, b2ls[2]); err != nil {
-		log.Fatal(err)
-	}
-
-	rawConfig, err := os.ReadFile("config.toml")
+	// Read config file
+	rawConfig, err := os.ReadFile("distributions.toml")
 	if err != nil {
 		panic(err)
 	}
@@ -102,6 +88,7 @@ func main() {
 		log.Panicf("Failed to parse configuration: no distributions defined")
 	}
 
+	// Run!
 	for name, options := range config.Distributions {
 		// TODO: recover from panics
 		HandleDistribution(name, options)
@@ -150,6 +137,30 @@ func HandleDistribution(name string, options DistributionConfig) {
 
 		Finalize(packages, name)
 	}
+}
+
+func SetupBackblazeBucket(envvar string, bucket **b2.Bucket) error {
+	config := strings.Split(os.Getenv(envvar), ":")
+	if len(config) != 3 {
+		return fmt.Errorf("could not find/parse B2_CAT_CREDENTIALS")
+	}
+
+	account := config[0]
+	key := config[1]
+	bucketName := config[2]
+
+	client, err := b2.NewClient(ctx, account, key, b2.UserAgent("src.codes"))
+	if err != nil {
+		return err
+	}
+
+	b, err := client.Bucket(ctx, bucketName)
+	if err != nil {
+		return err
+	}
+
+	*bucket = b
+	return nil
 }
 
 func HandlePackage(pkg *APTPackage, options *DistributionConfig) {
