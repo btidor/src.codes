@@ -1,47 +1,41 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>src.codes</title>
 
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
-      />
-    <meta
-      id="vscode-workbench-web-configuration"
-      data-settings="{&quot;folderUri&quot;:{&quot;scheme&quot;:&quot;distro&quot;,&quot;path&quot;:&quot;/&quot;}}"
-      />
-    <link
-      data-name="vs/workbench/workbench.web.api"
-      rel="stylesheet"
-      href="./vs/workbench/workbench.web.api.css"
-    />
-  </head>
+<head>
+  <meta charset="utf-8" />
+  <title>src.codes</title>
 
-  <body aria-label="">
-    <script>
-      self.require = {
-          baseUrl: window.location.origin,
-          recordStats: false,
-          paths: {
-            '@vscode/vscode-languagedetection': `${window.location.origin}/remote/@vscode/vscode-languagedetection/dist/lib/index.js`,
-            'vscode-textmate': `${window.location.origin}/remote/vscode-textmate/release/main`,
-            'vscode-oniguruma': `${window.location.origin}/remote/vscode-oniguruma/release/main`,
-            'xterm': `${window.location.origin}/remote/xterm/lib/xterm.js`,
-            'xterm-addon-search': `${window.location.origin}/remote/xterm-addon-search/lib/xterm-addon-search.js`,
-            'xterm-addon-unicode11': `${window.location.origin}/remote/xterm-addon-unicode11/lib/xterm-addon-unicode11.js`,
-            'xterm-addon-webgl': `${window.location.origin}/remote/xterm-addon-webgl/lib/xterm-addon-webgl.js`,
-            'tas-client-umd': `${window.location.origin}/remote/tas-client-umd/lib/tas-client-umd.js`,
-            'iconv-lite-umd': `${window.location.origin}/remote/iconv-lite-umd/lib/iconv-lite-umd.js`,
-            'jschardet': `${window.location.origin}/remote/jschardet/dist/jschardet.min.js`,
-          },
-      };
-    </script>
-    <script src="./vs/loader.js"></script>
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+  <meta id="vscode-workbench-web-configuration"
+    data-settings="{&quot;folderUri&quot;:{&quot;scheme&quot;:&quot;srccodes&quot;,&quot;path&quot;:&quot;/Hirsute (Ubuntu 20.04)&quot;}}" />
+  <link data-name="vs/workbench/workbench.web.api" rel="stylesheet" href="./vs/workbench/workbench.web.api.css" />
+</head>
 
-    <script src="./vs/workbench/workbench.web.api.nls.js"></script>
-    <script src="./vs/workbench/workbench.web.api.js"></script>
-    <script src="./vs/code/browser/workbench/workbench.js"></script>
-  </body>
+<body aria-label="">
+  <script>
+    self.require = {
+      baseUrl: window.location.origin,
+      recordStats: false,
+      paths: {
+        '@vscode/vscode-languagedetection': `${window.location.origin}/remote/@vscode/vscode-languagedetection/dist/lib/index.js`,
+        'vscode-textmate': `${window.location.origin}/remote/vscode-textmate/release/main`,
+        'vscode-oniguruma': `${window.location.origin}/remote/vscode-oniguruma/release/main`,
+        'xterm': `${window.location.origin}/remote/xterm/lib/xterm.js`,
+        'xterm-addon-search': `${window.location.origin}/remote/xterm-addon-search/lib/xterm-addon-search.js`,
+        'xterm-addon-unicode11': `${window.location.origin}/remote/xterm-addon-unicode11/lib/xterm-addon-unicode11.js`,
+        'xterm-addon-webgl': `${window.location.origin}/remote/xterm-addon-webgl/lib/xterm-addon-webgl.js`,
+        'tas-client-umd': `${window.location.origin}/remote/tas-client-umd/lib/tas-client-umd.js`,
+        'iconv-lite-umd': `${window.location.origin}/remote/iconv-lite-umd/lib/iconv-lite-umd.js`,
+        'jschardet': `${window.location.origin}/remote/jschardet/dist/jschardet.min.js`,
+      },
+    };
+  </script>
+  <script src="./vs/loader.js"></script>
+
+  <script src="./vs/workbench/workbench.web.api.nls.js"></script>
+  <script src="./vs/workbench/workbench.web.api.js"></script>
+  <script src="./vs/code/browser/workbench/workbench.js"></script>
+</body>
+
 </html>
