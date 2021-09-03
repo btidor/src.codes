@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
 
-import { File, Directory, SymbolicLink } from './types';
+import { File, Directory, SymbolicLink } from './inode';
 
 // We don't need to import TextDecoder, it's part of the Node runtime and the
 // browser environment. If we let TypeScript put in the explicit 'util' import,
@@ -100,8 +100,8 @@ export default class RemoteCache {
             });
     }
 
-    private parseJSONManifest(json: any): Directory {
-        let parent = new Directory();
+    private parseJSONManifest(json: any, grandparent?: Directory): Directory {
+        let parent = new Directory(grandparent);
         for (let item of Object.values(json.contents || []) as any) {
             var child;
             if (item.symlink_to) {
@@ -109,7 +109,7 @@ export default class RemoteCache {
             } else if (item.type! == 'file') {
                 child = new File(parent, item.size!, item.sha256!);
             } else if (item.type! == 'directory') {
-                child = this.parseJSONManifest(item);
+                child = this.parseJSONManifest(item, parent);
             } else {
                 throw new Error("Unknown member type: " + item.type!);
             }
