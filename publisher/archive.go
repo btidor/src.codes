@@ -18,8 +18,9 @@ import (
 type NodeType string
 
 const (
-	Directory NodeType = "directory"
-	File      NodeType = "file"
+	Directory    NodeType = "directory"
+	File         NodeType = "file"
+	SymbolicLink NodeType = "symlink"
 )
 
 type INode struct {
@@ -32,7 +33,7 @@ type INode struct {
 
 type NNode struct {
 	Name      string            `json:"name,omitempty"`
-	Type      NodeType          `json:"type",omitempty`
+	Type      NodeType          `json:"type"`
 	Contents  map[string]*NNode `json:"contents,omitempty"`
 	Size      uint64            `json:"size,omitempty"`
 	SHA256    string            `json:"sha256,omitempty"`
@@ -55,6 +56,7 @@ func IndexDirectory(directory string) ([]*INode, error) {
 		}
 		if info.Mode().Type()&fs.ModeSymlink != 0 {
 			// Symbolic link
+			node.Type = SymbolicLink
 			dest, err := os.Readlink(path)
 			if err != nil {
 				return err
