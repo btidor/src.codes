@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import RemoteCache from './remote';
-import { File, Directory, SymbolicLink } from './types';
+import { File, Directory, SymbolicLink } from './inode';
 
 // Type: the workspace root, /workspace
 interface Root {
