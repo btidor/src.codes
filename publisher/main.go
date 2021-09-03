@@ -30,9 +30,13 @@ type DistributionConfig struct {
 }
 
 var db *sql.DB
-var cat *b2.Bucket
+
 var ls *b2.Bucket
+var cat *b2.Bucket
+var meta *b2.Bucket
+
 var ctx context.Context = context.Background()
+
 var tempDir string = os.TempDir()
 
 func main() {
@@ -67,10 +71,13 @@ func main() {
 	}
 
 	// Connect to Backblaze
+	if err := SetupBackblazeBucket("B2_LS_CREDENTIALS", &ls); err != nil {
+		log.Fatal(err)
+	}
 	if err := SetupBackblazeBucket("B2_CAT_CREDENTIALS", &cat); err != nil {
 		log.Fatal(err)
 	}
-	if err := SetupBackblazeBucket("B2_LS_CREDENTIALS", &ls); err != nil {
+	if err := SetupBackblazeBucket("B2_META_CREDENTIALS", &meta); err != nil {
 		log.Fatal(err)
 	}
 
@@ -102,7 +109,7 @@ func HandleDistribution(name string, options DistributionConfig) {
 		panic(err)
 	}
 
-	for _, source := range *sources {
+	for _, source := range (*sources)[:1] { // TODO: remove limit
 		jobs := make(chan *APTPackage)
 		var wg sync.WaitGroup
 		for w := 0; w < 8; w++ {

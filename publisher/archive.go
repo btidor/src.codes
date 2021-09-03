@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/kurin/blazer/b2"
 )
 
 type NodeType string
@@ -237,13 +235,9 @@ func UploadPackageList(pkgs *[]DBPackage, distribution string) error {
 		return err
 	}
 
-	path := path.Join(distribution, "packages.json")
-
-	obj := ls.Object(path)
-	opt := b2.WithAttrsOption(&b2.Attrs{
-		Info: map[string]string{"b2-cache-control": "public, max-age=300"},
-	})
-	w := obj.NewWriter(ctx, opt)
+	path := fmt.Sprintf("%s.json", distribution)
+	obj := meta.Object(path)
+	w := obj.NewWriter(ctx)
 	if _, err := w.Write(data); err != nil {
 		w.Close()
 		return err
