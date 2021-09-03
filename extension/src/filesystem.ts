@@ -54,7 +54,8 @@ export default class SourceCodesFilesystem implements vscode.FileSystemProvider 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
         const path = this.parsePath(uri);
         if (path.type == 'root') {
-            // TODO: make this less wrong
+            // This node doesn't have its real contents, but that's okay, VS
+            // Code doesn't know about `.contents` anyway...
             return new Directory();
         } else if (path.type == 'inpackage') {
             return this.remoteCache
