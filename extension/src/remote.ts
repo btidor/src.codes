@@ -87,8 +87,7 @@ export default class RemoteCache {
             return Promise.resolve(this.packageIndex);
         }
 
-        // TODO: update this URL
-        let url = vscode.Uri.joinPath(API_URLS.META, this.distribution, "packages.json");
+        let url = vscode.Uri.joinPath(API_URLS.META, this.distribution + ".json");
         return axios
             .get(url.toString(), { responseType: 'json' })
             .then(res => {
@@ -104,7 +103,7 @@ export default class RemoteCache {
         let parent = new Directory(grandparent);
         for (let item of Object.values(json.contents || []) as any) {
             var child;
-            if (item.symlink_to) {
+            if (item.type! == 'symlink') {
                 child = new SymbolicLink(parent, item.symlink_to);
             } else if (item.type! == 'file') {
                 child = new File(parent, item.size!, item.sha256!);
