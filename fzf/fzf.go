@@ -100,7 +100,8 @@ func (idx Index) Handle(w http.ResponseWriter, r *http.Request, didLoad bool) {
 
 func httpError(w http.ResponseWriter, r *http.Request, code int) {
 	w.WriteHeader(code)
-	fmt.Fprintf(w, "%d %s", code, http.StatusText(code))
+	fmt.Fprintf(w, "%d %s\n", code, http.StatusText(code))
+	fmt.Fprintf(w, "Path: %s", r.URL.Path)
 }
 
 func gitCommit() string {
