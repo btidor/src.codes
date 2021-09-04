@@ -2,7 +2,7 @@ name: publisher
 on:
   schedule:
     - cron: '17 07 * * *'
-  workflow_dispatch: []
+  workflow_dispatch: {}
 jobs:
   run-publisher:
     runs-on: ubuntu-latest
