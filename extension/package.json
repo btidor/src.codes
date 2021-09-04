@@ -1,8 +1,10 @@
 {
   "name": "distro-source-explorer",
   "displayName": "Distro Source Explorer",
-  "description": "",
-  "version": "0.0.1",
+  "description": "VS Code extension for https://src.codes browser",
+  "repository": "btidor/src.codes",
+  "license": "MIT",
+  "version": "1.0.0-alpha",
   "engines": {
     "vscode": "^1.58.0"
   },
