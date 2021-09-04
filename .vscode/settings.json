@@ -3,13 +3,13 @@
         "build": true,
         "extension/node_modules": true,
         "extension/out": true,
-        "publisher/vendor": true
+        "vendor": true
     },
     "search.exclude": {
         "build": true,
         "extension/node_modules": true,
         "extension/out": true,
-        "publisher/vendor": true
+        "vendor": true
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off"
