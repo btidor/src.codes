@@ -1,9 +1,9 @@
 Patch VS Code to produce a web artifact instead of a desktop application. See:
 https://github.com/Felx-B/vscode-web
 
---- build/gulpfile.vscode.js	2021-08-28 02:52:47.325395558 +0000
-+++ build/gulpfile.vscode.js	2021-08-28 02:53:37.461856376 +0000
-@@ -35,11 +35,12 @@
+--- build/gulpfile.vscode.js	2021-09-01 10:25:58.000000000 +0000
++++ build/gulpfile.vscode.js	2021-09-04 04:14:07.504120837 +0000
+@@ -35,12 +35,13 @@
 
  // Build
  const vscodeEntryPoints = _.flatten([
@@ -12,13 +12,14 @@ https://github.com/Felx-B/vscode-web
  	buildfile.base,
  	buildfile.workerExtensionHost,
  	buildfile.workerNotebook,
+ 	buildfile.workerLanguageDetection,
 -	buildfile.workbenchDesktop,
 +	buildfile.workbenchWeb,
 +	buildfile.keyboardMaps,
  	buildfile.code
  ]);
 
-@@ -155,8 +156,8 @@
+@@ -156,8 +157,8 @@
 
  		const checksums = computeChecksums(out, [
  			'vs/base/parts/sandbox/electron-browser/preload.js',

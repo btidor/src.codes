@@ -1,8 +1,8 @@
 Patch the window indicator -- the rightmost element in the status bar -- to show
 the project name instead of "VS Code Web Playground".
 
---- src/vs/code/browser/workbench/workbench.ts	2021-08-29 05:17:43.092810321 +0000
-+++ src/vs/code/browser/workbench/workbench.ts	2021-08-29 05:18:58.514866206 +0000
+--- src/vs/code/browser/workbench/workbench.ts	2021-09-04 04:16:53.392340770 +0000
++++ src/vs/code/browser/workbench/workbench.ts	2021-09-04 04:21:54.237824236 +0000
 @@ -372,33 +372,8 @@
  	readonly command: string | undefined;
 
@@ -25,14 +25,14 @@ the project name instead of "VS Code Web Playground".
 -
 -		// Repo
 -		if (repositoryName && repositoryOwner) {
--			this.label = localize('playgroundLabelRepository', "$(remote) VS Code Web Playground: {0}/{1}", repositoryOwner, repositoryName);
--			this.tooltip = localize('playgroundRepositoryTooltip', "VS Code Web Playground: {0}/{1}", repositoryOwner, repositoryName);
+-			this.label = localize('playgroundLabelRepository', "$(remote) Visual Studio Code Playground: {0}/{1}", repositoryOwner, repositoryName);
+-			this.tooltip = localize('playgroundRepositoryTooltip', "Visual Studio Code Playground: {0}/{1}", repositoryOwner, repositoryName);
 -		}
 -
 -		// No Repo
 -		else {
--			this.label = localize('playgroundLabel', "$(remote) VS Code Web Playground");
--			this.tooltip = localize('playgroundTooltip', "VS Code Web Playground");
+-			this.label = localize('playgroundLabel', "$(remote) Visual Studio Code Playground");
+-			this.tooltip = localize('playgroundTooltip', "Visual Studio Code Playground");
 -		}
 +		this.label = '$(remote) src.codes';
 +		this.tooltip = '';
