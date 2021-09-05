@@ -1,0 +1,38 @@
+By default, VS Code shows a welcome banner on the web: "$PRODUCT Web. Browser
+based playground for testing [Learn More]". This diff hides it.
+
+--- src/vs/code/browser/workbench/workbench.ts	2021-09-05 01:15:18.375224398 +0000
++++ src/vs/code/browser/workbench/workbench.ts	2021-09-05 01:29:00.744025847 +0000
+@@ -17,7 +17,7 @@
+ import { parseLogLevel } from 'vs/platform/log/common/log';
+ import product from 'vs/platform/product/common/product';
+ import { isFolderToOpen, isWorkspaceToOpen } from 'vs/platform/windows/common/windows';
+-import { create, ICredentialsProvider, IHomeIndicator, IProductQualityChangeHandler, ISettingsSyncOptions, IURLCallbackProvider, IWelcomeBanner, IWindowIndicator, IWorkbenchConstructionOptions, IWorkspace, IWorkspaceProvider } from 'vs/workbench/workbench.web.api';
++import { create, ICredentialsProvider, IHomeIndicator, IProductQualityChangeHandler, ISettingsSyncOptions, IURLCallbackProvider, IWindowIndicator, IWorkbenchConstructionOptions, IWorkspace, IWorkspaceProvider } from 'vs/workbench/workbench.web.api';
+
+ function doCreateUri(path: string, queryValues: Map<string, string>): URI {
+ 	let query: string | undefined = undefined;
+@@ -453,15 +453,6 @@
+ 		title: localize('home', "Home")
+ 	};
+
+-	// Welcome Banner
+-	const welcomeBanner: IWelcomeBanner = {
+-		message: localize('welcomeBannerMessage', "{0} Web. Browser based playground for testing.", product.nameShort),
+-		actions: [{
+-			href: 'https://github.com/microsoft/vscode',
+-			label: localize('learnMore', "Learn More")
+-		}]
+-	};
+-
+ 	// Window indicator (unless connected to a remote)
+ 	let windowIndicator: WindowIndicator | undefined = undefined;
+ 	if (!workspaceProvider.hasRemote()) {
+@@ -498,7 +489,6 @@
+ 		settingsSyncOptions,
+ 		homeIndicator,
+ 		windowIndicator,
+-		welcomeBanner,
+ 		productQualityChangeHandler,
+ 		workspaceProvider,
+ 		urlCallbackProvider: new PollingURLCallbackProvider(),
