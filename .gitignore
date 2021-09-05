@@ -6,5 +6,5 @@ vendor/
 .vercel
 
 # src.codes build directories
-extension/out/
-build/
+/extension/dist/
+/build/

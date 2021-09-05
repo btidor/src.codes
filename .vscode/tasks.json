@@ -5,18 +5,31 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "compile",
-			"problemMatcher": "$tsc-watch",
-			"presentation": {
-				"reveal": "never"
-			},
+			"script": "compile-web",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
 			"options": {
 				"cwd": "${workspaceFolder}/extension"
-			}
+			},
+			"problemMatcher": [
+				"$ts-webpack",
+				"$tslint-webpack"
+			]
+		},
+		{
+			"type": "npm",
+			"script": "watch-web",
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/extension"
+			},
+			"isBackground": true,
+			"problemMatcher": [
+				"$ts-webpack-watch",
+				"$tslint-webpack-watch"
+			]
 		}
 	]
 }
