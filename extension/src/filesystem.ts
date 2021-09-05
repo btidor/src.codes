@@ -53,11 +53,11 @@ export default class SourceCodesFilesystem implements vscode.FileSystemProvider 
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
         const path = this.parsePath(uri);
-        if (path.type == 'root') {
+        if (path.type === 'root') {
             // This node doesn't have its real contents, but that's okay, VS
             // Code doesn't know about `.contents` anyway...
             return new Directory();
-        } else if (path.type == 'inpackage') {
+        } else if (path.type === 'inpackage') {
             return this.remoteCache
                 .getPackageRoot(path.package)
                 .then(node => node.walkPath(path.subpath));
@@ -68,11 +68,11 @@ export default class SourceCodesFilesystem implements vscode.FileSystemProvider 
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
         const path = this.parsePath(uri);
-        if (path.type == 'root') {
+        if (path.type === 'root') {
             return this.remoteCache
                 .listPackages()
                 .then(packages => packages.map((name, _) => [name, vscode.FileType.Directory]));
-        } else if (path.type == 'inpackage') {
+        } else if (path.type === 'inpackage') {
             return this.remoteCache
                 .getPackageRoot(path.package)
                 .then(root => {
@@ -100,9 +100,9 @@ export default class SourceCodesFilesystem implements vscode.FileSystemProvider 
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
         const path = this.parsePath(uri);
-        if (path.type == 'root') {
+        if (path.type === 'root') {
             throw vscode.FileSystemError.FileIsADirectory();
-        } else if (path.type == 'inpackage') {
+        } else if (path.type === 'inpackage') {
             return this.remoteCache
                 .getPackageRoot(path.package)
                 .then(root => {

@@ -3,15 +3,10 @@ import axios from 'axios';
 
 import { File, Directory, SymbolicLink } from './inode';
 
-// We don't need to import TextDecoder, it's part of the Node runtime and the
-// browser environment. If we let TypeScript put in the explicit 'util' import,
-// it'll fail when running in the browser.
-declare var TextDecoder: any;
-
 const API_URLS = {
-    META: vscode.Uri.parse('https://meta.src.codes/'),
-    LS: vscode.Uri.parse('https://ls.src.codes/'),
-    CAT: vscode.Uri.parse('https://cat.src.codes/'),
+    meta: vscode.Uri.parse('https://meta.src.codes/'),
+    ls: vscode.Uri.parse('https://ls.src.codes/'),
+    cat: vscode.Uri.parse('https://cat.src.codes/'),
 };
 
 type PackageIndex = { [name: string]: { version: string, hash: string; }; };
@@ -53,7 +48,7 @@ export default class RemoteCache {
                 let filename = new Array(
                     packageName, entry.version, entry.hash + ".json",
                 ).join("_");
-                let url = vscode.Uri.joinPath(API_URLS.LS, this.distribution, filename);
+                let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, filename);
                 return axios
                     .get(url.toString(), { responseType: 'json' })
                     .then(res => {
@@ -69,7 +64,7 @@ export default class RemoteCache {
 
     getFile(file: File) {
         let url = vscode.Uri.joinPath(
-            API_URLS.CAT,
+            API_URLS.cat,
             file.sha256.slice(0, 2),
             file.sha256.slice(0, 4),
             file.sha256,
@@ -87,7 +82,7 @@ export default class RemoteCache {
             return Promise.resolve(this.packageIndex);
         }
 
-        let url = vscode.Uri.joinPath(API_URLS.META, this.distribution + ".json");
+        let url = vscode.Uri.joinPath(API_URLS.meta, this.distribution + ".json");
         return axios
             .get(url.toString(), { responseType: 'json' })
             .then(res => {
@@ -103,11 +98,11 @@ export default class RemoteCache {
         let parent = new Directory(grandparent);
         for (let item of Object.values(json.contents || []) as any) {
             var child;
-            if (item.type! == 'symlink') {
+            if (item.type! === 'symlink') {
                 child = new SymbolicLink(parent, item.symlink_to);
-            } else if (item.type! == 'file') {
+            } else if (item.type! === 'file') {
                 child = new File(parent, item.size!, item.sha256!);
-            } else if (item.type! == 'directory') {
+            } else if (item.type! === 'directory') {
                 child = this.parseJSONManifest(item, parent);
             } else {
                 throw new Error("Unknown member type: " + item.type!);

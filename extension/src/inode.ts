@@ -123,9 +123,9 @@ export class SymbolicLink implements vscode.FileStat, Node {
     resolveLinks(): File | Directory {
         var node: File | Directory = this.parent;
         for (let part of this.destination.split("/")) {
-            if (part == ".") {
+            if (part === ".") {
                 continue;
-            } else if (part == "..") {
+            } else if (part === "..") {
                 if (node.parent) {
                     node = node.parent;
                 } else {
@@ -133,7 +133,7 @@ export class SymbolicLink implements vscode.FileStat, Node {
                 }
             } else {
                 var tmp: Node = node.descend(part);
-                if (tmp == this) {
+                if (tmp === this) {
                     throw new Error("Symbolic link loop detected");
                 }
                 node = tmp.resolveLinks();
