@@ -11,12 +11,14 @@ export default class SourceCodesFileSearchProvider implements vscode.FileSearchP
     }
 
     provideFileSearchResults(query: vscode.FileSearchQuery, _options: vscode.FileSearchOptions, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Uri[]> {
-        let params = new URLSearchParams();
-        params.append('q', query.pattern);
+        let params = new URLSearchParams({
+            q: query.pattern,
+        });
+        // vscode.Uri doesn't quite get escaping right, so do it manually
         let url = vscode.Uri.joinPath(FZF_URL, this.distribution)
-            .with({ query: params.toString() });
+            .toString(false) + '?' + params.toString();
         return axios
-            .get(url.toString(), { responseType: 'text' })
+            .get(url, { responseType: 'text' })
             .then(res => {
                 let result: vscode.Uri[] = [];
                 for (let line of res.data.split("\n")) {
