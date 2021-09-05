@@ -7,6 +7,8 @@ const FS_SCHEME = 'srccodes';
 const DISTRIBUTION = 'hirsute';
 
 export function activate(context: vscode.ExtensionContext) {
+	console.warn("Hello from srccodes!");
+
 	context.subscriptions.push(
 		vscode.workspace.registerFileSystemProvider(
 			FS_SCHEME, new SourceCodesFilesystem(DISTRIBUTION), { isCaseSensitive: true, isReadonly: true },
