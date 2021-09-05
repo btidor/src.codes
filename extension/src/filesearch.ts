@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as vscode from 'vscode';
 
-const FZF_URL = vscode.Uri.parse('http://localhost:7070/');
+const FZF_URL = vscode.Uri.parse('https://fzf.src.codes/');
 
 export default class SourceCodesFileSearchProvider implements vscode.FileSearchProvider {
     private distribution: string;
@@ -11,7 +11,10 @@ export default class SourceCodesFileSearchProvider implements vscode.FileSearchP
     }
 
     provideFileSearchResults(query: vscode.FileSearchQuery, _options: vscode.FileSearchOptions, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Uri[]> {
-        let url = vscode.Uri.joinPath(FZF_URL, this.distribution, query.pattern);
+        let params = new URLSearchParams();
+        params.append('q', query.pattern);
+        let url = vscode.Uri.joinPath(FZF_URL, this.distribution)
+            .with({ query: params.toString() });
         return axios
             .get(url.toString(), { responseType: 'text' })
             .then(res => {
