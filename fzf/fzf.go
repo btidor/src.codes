@@ -5,26 +5,35 @@ import (
 	"container/heap"
 	"fmt"
 	"net/http"
-	"os"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/btidor/src.codes/internal"
 	"github.com/junegunn/fzf/src/algo"
 	"github.com/junegunn/fzf/src/util"
 )
 
-const ResultLimit = 100
-
-type Index struct {
-	data map[string][]string
+type Server struct {
+	Meta        *url.URL
+	Commit      string
+	ResultLimit int
+	data        map[string][]string
 }
 
-func LoadIndex(distribution string) (*Index, error) {
-	var data = make(map[string][]string)
+func (s *Server) EnsureIndex(distribution string) bool {
+	if s.data == nil {
+		s.data = make(map[string][]string)
+	}
 
-	// TODO: update URLs, fingerprint
-	resp, err := http.Get("https://meta.src.codes/" + distribution + ".fzf")
+	if _, found := s.data[distribution]; found {
+		return true
+	}
+
+	// TODO: adjust URLs, add asset fingerprinting
+	url := internal.UrlWithPath(s.Meta, distribution+".fzf")
+	resp, err := http.Get(url.String())
 	if err != nil {
 		panic(err)
 	}
@@ -33,35 +42,35 @@ func LoadIndex(distribution string) (*Index, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
-		data[distribution] = append(data[distribution], line)
+		s.data[distribution] = append(s.data[distribution], line)
 	}
-	return &Index{data}, nil
+	return false
 }
 
-func (idx Index) Handle(w http.ResponseWriter, r *http.Request, didLoad bool) {
+func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	var start = time.Now()
 
-	parts := strings.SplitN(r.URL.Path, "/", 3)
+	var parts = strings.SplitN(r.URL.Path, "/", 2)
 	if len(parts) < 2 || parts[1] == "" {
 		// Request to "/"
-		fmt.Fprintf(w, "Hello from fzf@%s!", gitCommit())
+		fmt.Fprintf(w, "Hello from fzf@%s!", s.Commit)
 		return
 	}
 
 	var distribution = parts[1]
-	data, found := idx.data[distribution]
+	data, found := s.data[distribution]
 	if !found {
 		// Request to "/invalid-distribution(/...)?"
-		httpError(w, r, http.StatusNotFound)
-		return
-	} else if len(parts) < 3 {
-		// Request to "/distribution"
-		fmt.Fprintf(w, "Distribution: %s", distribution)
+		internal.HttpError(w, r, http.StatusNotFound)
 		return
 	}
 
-	var query = parts[2]
-	var count = 0
+	var query = r.URL.Query().Get("q")
+	if query == "" {
+		// Request to "/distribution" without query
+		internal.HttpError(w, r, http.StatusBadRequest)
+		return
+	}
 
 	var h = &ResultHeap{}
 	heap.Init(h)
@@ -72,7 +81,7 @@ func (idx Index) Handle(w http.ResponseWriter, r *http.Request, didLoad bool) {
 
 		if res.Score <= 0 {
 			continue
-		} else if len(*h) < ResultLimit {
+		} else if len(*h) < s.ResultLimit {
 			heap.Push(h, Result{res.Score, &data[j]})
 		} else if res.Score > h.Peek().Score {
 			heap.Pop(h)
@@ -88,26 +97,13 @@ func (idx Index) Handle(w http.ResponseWriter, r *http.Request, didLoad bool) {
 	}
 
 	// TODO: profile and speed up
-	fmt.Fprintf(w, "\nTime: %s\n", time.Since(start))
-	fmt.Fprintf(w, "Query: %s\n", query)
-	if count >= ResultLimit {
-		fmt.Fprintf(w, "Results: %d (truncated)\n", count)
+	w.Write([]byte("\n"))
+	fmt.Fprintf(w, "Query: %#v\n", query)
+	if len(*h) >= s.ResultLimit {
+		fmt.Fprintf(w, "Results: %d (truncated)\n", len(*h))
 	} else {
-		fmt.Fprintf(w, "Results: %d\n", count)
+		fmt.Fprintf(w, "Results: %d\n", len(*h))
 	}
-	fmt.Fprintf(w, "Full index load: %t\n", didLoad)
-}
-
-func httpError(w http.ResponseWriter, r *http.Request, code int) {
-	w.WriteHeader(code)
-	fmt.Fprintf(w, "%d %s\n", code, http.StatusText(code))
-	fmt.Fprintf(w, "Path: %s", r.URL.Path)
-}
-
-func gitCommit() string {
-	if val := os.Getenv("VERCEL_GIT_COMMIT_SHA"); val != "" {
-		return val[:8]
-	} else {
-		return "dev"
-	}
+	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
+	fmt.Fprintf(w, "Warm: %t\n", warm)
 }
