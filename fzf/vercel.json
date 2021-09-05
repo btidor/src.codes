@@ -1,0 +1,26 @@
+{
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'none';"
+                }
+            ]
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/",
+            "destination": "/api/fzf"
+        },
+        {
+            "source": "/:path*",
+            "destination": "/api/fzf"
+        }
+    ],
+    "github": {
+        "silent": true
+    }
+}
