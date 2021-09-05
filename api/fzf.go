@@ -14,9 +14,6 @@ var server fzf.Server
 
 var base = internal.UrlMustParse("https://meta.src.codes")
 
-// For Vercel (production)
-// Note: this file must be in a directory called 'api'
-
 func Handler(w http.ResponseWriter, r *http.Request) {
 	commit := os.Getenv("VERCEL_GIT_COMMIT_SHA")[:8]
 	if commit == "" {
