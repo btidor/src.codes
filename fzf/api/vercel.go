@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"fmt"
@@ -32,25 +32,4 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	warm := server.EnsureIndex("hirsute")
 	server.Handle(w, r, warm)
-}
-
-// For local devleopment
-
-const localAddr = "localhost:7070"
-
-func main() {
-	server = fzf.Server{
-		Meta:        base,
-		Commit:      "dev",
-		ResultLimit: 100,
-	}
-	server.EnsureIndex("hirsute")
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		server.Handle(w, r, true)
-	})
-
-	fmt.Printf("Listening on %s...\n", localAddr)
-	err := http.ListenAndServe(localAddr, nil)
-	panic(err)
 }
