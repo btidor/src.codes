@@ -1,11 +1,13 @@
 {
     "files.exclude": {
+        ".vercel": true,
         "build": true,
         "extension/node_modules": true,
         "extension/out": true,
         "vendor": true
     },
     "search.exclude": {
+        ".vercel": true,
         "build": true,
         "extension/node_modules": true,
         "extension/out": true,
