@@ -24,7 +24,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://src.codes"
+          "value": "*"
         }
       ],
       "has": [
