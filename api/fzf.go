@@ -10,7 +10,7 @@ import (
 )
 
 // TODO: cache invalidation
-var server fzf.Server
+var server *fzf.Server
 
 var base = internal.UrlMustParse("https://meta.src.codes")
 
@@ -21,10 +21,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	server = fzf.Server{
-		Meta:        base,
-		Commit:      commit,
-		ResultLimit: 100,
+	if server == nil {
+		server = &fzf.Server{
+			Meta:        base,
+			Commit:      commit,
+			ResultLimit: 100,
+		}
 	}
 
 	warm := server.EnsureIndex("hirsute")
