@@ -109,7 +109,9 @@ func HandleDistribution(name string, options DistributionConfig) {
 		panic(err)
 	}
 
-	for _, source := range (*sources)[:1] { // TODO: remove limit
+	allPackages := make(map[string]*APTPackage)
+
+	for _, source := range *sources {
 		jobs := make(chan *APTPackage)
 		var wg sync.WaitGroup
 		for w := 0; w < 8; w++ {
@@ -142,8 +144,16 @@ func HandleDistribution(name string, options DistributionConfig) {
 		close(jobs)
 		wg.Wait()
 
-		Finalize(packages, name)
+		for _, p := range packages {
+			// Earlier sources take priority
+			_, found := allPackages[p.Name]
+			if !found {
+				allPackages[p.Name] = p
+			}
+		}
 	}
+
+	Finalize(allPackages, name)
 }
 
 func SetupBackblazeBucket(envvar string, bucket **b2.Bucket) error {
@@ -224,20 +234,24 @@ func HandlePackage(pkg *APTPackage, options *DistributionConfig) {
 	}
 }
 
-func Finalize(aptpkg []*APTPackage, distribution string) {
+func Finalize(aptpkg map[string]*APTPackage, distribution string) {
 	dbpkg, err := ListPackages(distribution)
 	if err != nil {
 		panic(err)
 	}
 
-	aptpkgl := make(map[string]*APTPackage)
-	for _, ap := range aptpkg {
-		aptpkgl[ap.Name] = ap
+	var aplist []*APTPackage
+	for _, p := range aptpkg {
+		aplist = append(aplist, p)
+	}
+
+	if err := EnsurePacakgesInLatest(aplist, distribution); err != nil {
+		panic(err)
 	}
 
 	var remaining, delete []DBPackage
 	for _, dp := range *dbpkg {
-		if _, found := aptpkgl[dp.Name]; found {
+		if _, found := aptpkg[dp.Name]; found {
 			// Package exists in current index
 			remaining = append(remaining, dp)
 		} else {

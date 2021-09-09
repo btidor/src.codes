@@ -123,7 +123,6 @@ func UploadAndRecordFiles(deduped []*INode, directory string, controlHash string
 					if err := RecordFiles(processed, controlHash); err != nil {
 						panic(err)
 					}
-					fmt.Print("*")
 					processed = make([]*INode, 0)
 				}
 			}
@@ -133,7 +132,6 @@ func UploadAndRecordFiles(deduped []*INode, directory string, controlHash string
 				if err := RecordFiles(processed, controlHash); err != nil {
 					panic(err)
 				}
-				fmt.Print("%")
 			}
 		}(w, jobs, &wg)
 	}
