@@ -6,6 +6,7 @@
 	"remoteUser": "vscode",
 	"postCreateCommand": "vscode/build",
 	"extensions": [
-		"golang.go"
+		"golang.go",
+		"bungcip.better-toml"
 	]
 }

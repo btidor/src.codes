@@ -115,15 +115,6 @@ func RecordPackage(pkg *APTPackage, indexSlug string) error {
 			" ON DUPLICATE KEY UPDATE distribution = VALUES(distribution)",
 		pkg.Distribution, pkg.Area, pkg.Component, pkg.Name, pkg.Version, pkg.ControlHash, indexSlug,
 	)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(
-		"REPLACE INTO latest_packages(distribution, package_name, latest_version)"+
-			" VALUES(?, ?, ?)",
-		pkg.Distribution, pkg.Name, pkg.Version,
-	)
 	return err
 }
 
@@ -157,6 +148,28 @@ func ListPackages(distribution string) (*[]DBPackage, error) {
 		pkgs = append(pkgs, pkg)
 	}
 	return &pkgs, nil
+}
+
+func EnsurePacakgesInLatest(pkgs []*APTPackage, distribution string) error {
+	for i := 0; i < len(pkgs); i += batchSize {
+		var values []interface{}
+		for j := i; j < i+batchSize && j < len(pkgs); j++ {
+			values = append(values, distribution)
+			values = append(values, (pkgs)[j].Name)
+			values = append(values, (pkgs)[j].Version)
+		}
+		ct := len(values) / 3
+
+		_, err := db.Exec(
+			"REPLACE INTO latest_packages(distribution, package_name, latest_version)"+
+				" VALUES (?, ?, ?)"+strings.Repeat(", (?, ?, ?)", ct-1),
+			values...,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func DeletePackagesFromLatest(pkgs *[]DBPackage, distribution string) error {
