@@ -9,7 +9,7 @@ const API_URLS = {
     cat: vscode.Uri.parse('https://cat.src.codes/'),
 };
 
-type PackageIndex = { [name: string]: { version: string, hash: string; }; };
+type PackageIndex = { [name: string]: { version: string, epoch: number; }; };
 
 export default class RemoteCache {
     // The distribution slug: "hirsute", "bullseye", etc.
@@ -45,9 +45,7 @@ export default class RemoteCache {
                     throw vscode.FileSystemError.FileNotFound();
                 }
 
-                let filename = new Array(
-                    packageName, entry.version, entry.hash + ".json",
-                ).join("_");
+                let filename = packageName + "_" + entry.version + ":" + entry.epoch + ".json";
                 let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, filename);
                 return axios
                     .get(url.toString(), { responseType: 'json' })
@@ -82,7 +80,7 @@ export default class RemoteCache {
             return Promise.resolve(this.packageIndex);
         }
 
-        let url = vscode.Uri.joinPath(API_URLS.meta, this.distribution + ".json");
+        let url = vscode.Uri.joinPath(API_URLS.meta, this.distribution, "packages.json");
         return axios
             .get(url.toString(), { responseType: 'json' })
             .then(res => {
