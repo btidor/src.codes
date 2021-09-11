@@ -14,7 +14,7 @@ var server fzf.Server
 
 const localAddr = "localhost:7070"
 
-var base = internal.UrlMustParse("https://meta.src.codes")
+var base = internal.URLMustParse("https://meta.src.codes")
 
 func main() {
 	server = fzf.Server{

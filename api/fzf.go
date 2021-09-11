@@ -12,7 +12,7 @@ import (
 // TODO: cache invalidation
 var server *fzf.Server
 
-var base = internal.UrlMustParse("https://meta.src.codes")
+var base = internal.URLMustParse("https://meta.src.codes")
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	commit := os.Getenv("VERCEL_GIT_COMMIT_SHA")[:8]
