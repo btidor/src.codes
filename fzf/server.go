@@ -32,7 +32,7 @@ func (s *Server) EnsureIndex(distribution string) bool {
 	}
 
 	// TODO: adjust URLs, add asset fingerprinting
-	url := internal.UrlWithPath(s.Meta, distribution+".fzf")
+	url := internal.URLWithPath(s.Meta, distribution+".fzf")
 	resp, err := http.Get(url.String())
 	if err != nil {
 		panic(err)
@@ -61,14 +61,14 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	data, found := s.data[distribution]
 	if !found {
 		// Request to "/invalid-distribution(/...)?"
-		internal.HttpError(w, r, http.StatusNotFound)
+		internal.HTTPError(w, r, http.StatusNotFound)
 		return
 	}
 
 	var query = r.URL.Query().Get("q")
 	if query == "" {
 		// Request to "/distribution" without query
-		internal.HttpError(w, r, http.StatusBadRequest)
+		internal.HTTPError(w, r, http.StatusBadRequest)
 		return
 	}
 

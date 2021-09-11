@@ -8,7 +8,9 @@ import (
 	"path"
 )
 
-func UrlMustParse(s string) *url.URL {
+// URLMustParse parses a URL and panics if an error occurs. It's useful for
+// assigning constants.
+func URLMustParse(s string) *url.URL {
 	u, err := url.Parse(s)
 	if err != nil {
 		panic(err)
@@ -16,16 +18,20 @@ func UrlMustParse(s string) *url.URL {
 	return u
 }
 
-func UrlWithPath(u *url.URL, s ...string) *url.URL {
+// URLWithPath takes a base URL and a sequence of path components and
+// concatenates the two together using path.Join's forward-slash separators.
+func URLWithPath(u *url.URL, s ...string) *url.URL {
 	c := []string{u.Path}
 	c = append(c, s...)
 
-	u2 := *u
-	u2.Path = path.Join(c...)
-	return &u2
+	res := *u
+	res.Path = path.Join(c...)
+	return &res
 }
 
-func HttpError(w http.ResponseWriter, r *http.Request, code int) {
+// HTTPError is for HTTP servers. It responds with the provided status code and
+// a simple text-based error like "404 Not Found".
+func HTTPError(w http.ResponseWriter, r *http.Request, code int) {
 	w.WriteHeader(code)
 	fmt.Fprintf(w, "%d %s\n", code, http.StatusText(code))
 }
