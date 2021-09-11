@@ -1,5 +1,4 @@
-[distributions.hirsute]
+[hirsute]
 mirror = "http://us.archive.ubuntu.com/ubuntu/"
-keyfile = "keys/ubuntu.asc"
 areas = ["security", "updates", ""]
 components = ["main", "multiverse"]
