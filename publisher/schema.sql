@@ -1,49 +1,50 @@
-CREATE TABLE packages (
-    -- Information about the distribution:
-    --  * distro: hirsute, bullseye, etc.
-    --  * area: NULL, backports, proposed, etc.
-    --  * component: main, multiverse, etc.
-    distribution    VARCHAR(32) NOT NULL,
-    area            VARCHAR(32),
-    component       VARCHAR(32),
+-- The `package_versions` table tracks the unique packages in our system. Every
+-- version of every package is a row in this table. (If the same version of the
+-- same package appears in different distributions, each distro gets its own row
+-- too.)
+CREATE TABLE package_versions (
+    id              INT NOT NULL AUTO_INCREMENT,
 
-    -- Package Info
-    package_name    VARCHAR(255) NOT NULL,
-    package_version VARCHAR(255) NOT NULL,
+    distro          VARCHAR(32) NOT NULL,
+    pkg_name        VARCHAR(255) NOT NULL,
+    pkg_version     VARCHAR(255) NOT NULL,
 
-    -- SHA-256 hash of the source control file (*.dsc). If multiple packages
-    -- have the same control hash, we only process it once.
-    control_hash    CHAR(64) NOT NULL,
-
-    -- Short prefix of the SHA-256 hash of the src.codes index file (*.json).
-    -- Used in the file name for cacheability.
-    index_slug      CHAR(8) NOT NULL,
-
+    -- The (first) date we processed the package version.
     processed_at    TIMESTAMP DEFAULT UTC_TIMESTAMP(),
 
-    PRIMARY KEY (distribution, package_name, package_version),
-    INDEX hash_lookup (control_hash)
+    -- The epoch represents which version of the archiver last processed the
+    -- package. (It's also included in the index filenames on `ls` and `meta`).
+    -- If the archiver is updated to produce new indexes or formats, we'll
+    -- reprocess old packages and bump their epoch.
+    sc_epoch        INT NOT NULL,
+
+    PRIMARY KEY (id),
+    UNIQUE INDEX package_version (distro, pkg_name, pkg_version)
 );
 
-CREATE TABLE latest_packages (
-    distribution    VARCHAR(32) NOT NULL,
-    package_name    VARCHAR(255) NOT NULL,
-    latest_version  VARCHAR(255) NOT NULL,
+-- The `distribution_contents` table mirrors the contents of the Sources file
+-- published by each distribution. It lists the latest version of each package
+-- included in the distribution, and excludes any packages that have been
+-- removed from the distribution. This table gets re-written as packages are
+-- updated, added and removed.
+CREATE TABLE distribution_contents (
+    id              INT NOT NULL AUTO_INCREMENT,
 
-    PRIMARY KEY (distribution, package_name)
+    distro          VARCHAR(32) NOT NULL,
+    pkg_name        VARCHAR(255) NOT NULL,
+    current         INT NOT NULL, -- foreign key to package_versions
+
+    PRIMARY KEY (id),
+    UNIQUE INDEX package (distro, pkg_name)
 );
 
+-- The `files` table tracks the files uploaded to B2. We check this table to
+-- avoid uploading the same file multiple times. This table takes up the vast
+-- majority of our database storage, so we avoid storing any other columns, and
+-- we truncate file hashes to 64 bits. (Files are stored under the full SHA-256
+-- hash, so if two files have a collision in the first 64 bits, we'll skip
+-- uploading one of the two and requests to retrieve it will 404. Sorry!)
 CREATE TABLE files (
-    -- Identifies the package(s) in which this file appears from the 'packages'
-    -- table.
-    control_hash   CHAR(64) NOT NULL,
-
-    -- Path to the file in the source archive, relative to the archive root.
-    file_path       VARCHAR(511) NOT NULL,
-
-    file_hash       CHAR(64) NOT NULL,
-    file_size       BIGINT,
-
-    PRIMARY KEY (control_hash, file_path),
-    INDEX hash_lookup (file_hash)
+    short_hash      BINARY(8) NOT NULL,
+    PRIMARY KEY (short_hash)
 );
