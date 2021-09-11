@@ -15,12 +15,12 @@ jobs:
           go-version: 1.17
 
       - name: Run publisher
-        run: go run -v ./...
+        run: go run -v ./cmd
         working-directory: ./publisher
         env:
-          DBCONN: ${{ secrets.DBCONN }}
-          B2_LS_CREDENTIALS: ${{ secrets.B2_LS_CREDENTIALS }}
-          B2_CAT_CREDENTIALS: ${{ secrets.B2_CAT_CREDENTIALS }}
-          B2_META_CREDENTIALS: ${{ secrets.B2_META_CREDENTIALS }}
+          DATABASE: ${{ secrets.DATABASE }}
+          B2_LS_KEY: ${{ secrets.B2_LS_KEY }}
+          B2_CAT_KEY: ${{ secrets.B2_CAT_KEY }}
+          B2_META_KEY: ${{ secrets.B2_META_KEY }}
 
 concurrency: publisher-mutex
