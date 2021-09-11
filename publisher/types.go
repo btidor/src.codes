@@ -2,7 +2,7 @@ package publisher
 
 import "net/url"
 
-const Epoch = 0
+const Epoch = 2
 
 type Distro struct {
 	Name       string
