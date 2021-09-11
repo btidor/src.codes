@@ -17,9 +17,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt install -y -q \
 
 # Install development tools
 RUN apt install -y -q silversearcher-ag mysql-client && \
-    wget https://github.com/planetscale/cli/releases/download/v0.68.0/pscale_0.68.0_linux_amd64.deb && \
-    dpkg --install pscale_0.68.0_linux_amd64.deb
+    wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
+    dpkg --install pscale_0.72.0_linux_amd64.deb
 
 # Install Go
-RUN (curl -sL https://golang.org/dl/go1.17.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://golang.org/dl/go1.17.1.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
