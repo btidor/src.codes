@@ -1,28 +1,23 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License.
- *--------------------------------------------------------------------------------------------*/
-
 //@ts-check
+
 'use strict';
-
-//@ts-check
-/** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 const path = require('path');
 const webpack = require('webpack');
 
-module.exports = /** @type WebpackConfig */ {
+/** @type {import('webpack').Configuration} **/
+module.exports = {
 	context: path.dirname(__dirname),
-	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
-	target: 'webworker', // extensions run in a webworker context
+	target: 'webworker',
+	mode: 'none',
+
 	entry: {
 		'extension': './src/extension.ts',
 		'test/suite/index': './src/test/suite/index.ts'
 	},
 	resolve: {
-		mainFields: ['browser', 'module', 'main'], // look for `browser` entry point in imported node modules
-		extensions: ['.ts', '.js'], // support ts-files and js-files
+		mainFields: ['browser', 'module', 'main'],
+		extensions: ['.ts', '.js'],
 		alias: {
 			// provides alternate implementation for node module and source files
 		},
@@ -49,7 +44,7 @@ module.exports = /** @type WebpackConfig */ {
 		}),
 	],
 	externals: {
-		'vscode': 'commonjs vscode', // ignored because it doesn't exist
+		vscode: 'commonjs vscode', // ignored because it doesn't exist
 	},
 	performance: {
 		hints: false

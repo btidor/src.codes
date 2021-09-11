@@ -5,11 +5,36 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "compile-web",
+			"script": "compile-std",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
+			"options": {
+				"cwd": "${workspaceFolder}/extension"
+			},
+			"problemMatcher": [
+				"$ts-webpack",
+				"$tslint-webpack"
+			]
+		},
+		{
+			"type": "npm",
+			"script": "watch-std",
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/extension"
+			},
+			"isBackground": true,
+			"problemMatcher": [
+				"$ts-webpack-watch",
+				"$tslint-webpack-watch"
+			]
+		},
+		{
+			"type": "npm",
+			"script": "compile-web",
+			"group": "build",
 			"options": {
 				"cwd": "${workspaceFolder}/extension"
 			},
