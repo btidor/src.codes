@@ -1,3 +1,5 @@
+// Package analysis provides tools for extracting, indexing and analyzing source
+// code archives.
 package analysis
 
 import (
@@ -13,10 +15,12 @@ import (
 	"github.com/btidor/src.codes/publisher/apt"
 )
 
+// An Archive represents a package that's been extracted to the local
+// filesystem.
 type Archive struct {
-	Pkg  *apt.Package
-	Dir  string
-	Tree Directory
+	Pkg  *apt.Package // source package
+	Dir  string       // local directory
+	Tree Directory    // index of package contents
 
 	// Because of how dpkg-extract works, we create a temporary directory and
 	// the archive is extracted to a subdirectory (`Dir`). To make sure we clean
@@ -25,10 +29,19 @@ type Archive struct {
 	parent string
 }
 
+// CleanUp deletes the extracted archive from disk.
+//
+//   var a Archive = DownloadExtractAndWalkTree(...)
+//   defer a.CleanUp()
+//
 func (a Archive) CleanUp() error {
 	return os.RemoveAll(a.parent)
 }
 
+// DownloadExtractAndWalkTree creates an Archive from an apt.Package. It
+// downloads the files listed in the package's control file, extracts and
+// combines them using dpkg-source, and walks the resulting directory to create
+// the index.
 func DownloadExtractAndWalkTree(pkg apt.Package) Archive {
 	// Create temporary directory
 	tempdir, err := ioutil.TempDir("", "srccodes-"+pkg.Name)

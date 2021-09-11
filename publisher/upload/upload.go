@@ -84,7 +84,6 @@ func (up *Uploader) UploadFile(f analysis.File) {
 }
 
 func (up *Uploader) UploadTree(a analysis.Archive) {
-	// TODO: proper serialization for INode
 	data, err := json.MarshalIndent(a.Tree, "", "  ")
 	if err != nil {
 		panic(err)
@@ -107,7 +106,6 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 }
 
 func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageVersion) {
-	// TODO: check JSON serialization
 	var list = make(map[string]interface{})
 	for _, pv := range pkgvers {
 		list[pv.Name] = struct {

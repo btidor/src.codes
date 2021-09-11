@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/hex"
 	"strings"
 
 	"github.com/btidor/src.codes/publisher/analysis"
@@ -9,31 +10,31 @@ import (
 func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
 	var deduped []analysis.File
 	for i := 0; i < len(files); i += db.batchSize {
-		var hashes []interface{}
+		var values []interface{}
 		for j := i; j < i+db.batchSize && j < len(files); j++ {
-			hashes = append(hashes, files[j].ShortHash())
+			values = append(values, files[j].SHA256[:8])
 		}
 
 		rows, err := db.Query(
-			"SELECT DISTINCT short_hash FROM files WHERE file_hash IN (?"+
-				strings.Repeat(", ?", len(hashes)-1)+")",
-			hashes...,
+			"SELECT DISTINCT short_hash FROM files WHERE short_hash IN (?"+
+				strings.Repeat(", ?", len(values)-1)+")",
+			values...,
 		)
 		if err != nil {
 			panic(err)
 		}
 
-		var hash [8]byte
-		existing := make(map[[8]byte]bool, db.batchSize)
+		existing := make(map[string]bool, db.batchSize)
 		for rows.Next() {
+			var hash []byte
 			if err := rows.Scan(&hash); err != nil {
 				panic(err)
 			}
-			existing[hash] = true
+			existing[hex.EncodeToString(hash)] = true
 		}
 
 		for j := i; j < i+db.batchSize && j < len(files); j++ {
-			h := files[j].ShortHash()
+			h := hex.EncodeToString(files[j].SHA256[:8])
 			if _, found := existing[h]; !found {
 				deduped = append(deduped, files[j])
 			}
@@ -50,7 +51,7 @@ func (db *Database) RecordFiles(files []analysis.File) {
 
 	var values []interface{}
 	for i := 0; i < len(files); i++ {
-		values = append(values, files[i].ShortHash())
+		values = append(values, files[i].SHA256[:8])
 	}
 
 	_, err := db.Exec(
