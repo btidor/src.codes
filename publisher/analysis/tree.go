@@ -9,12 +9,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
-type INode interface {
-	isAnINode()
-}
+// An INode represents anything that can be contained in a directory: a file,
+// another directory or a symbolic link.
+type INode interface{ isAnINode() }
 
 type Directory struct {
 	Contents map[string]INode
@@ -22,10 +23,20 @@ type Directory struct {
 
 func (d Directory) isAnINode() {}
 
+// Files recursively enumerates the directory and returns a flattened list of
+// its contents. Nodes are added in sorted order by name.
 func (d Directory) Files() []File {
 	var files []File
-	for _, node := range d.Contents {
-		switch node := node.(type) {
+
+	// Enumerate files in sorted order
+	var keys []string
+	for name := range d.Contents {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		switch node := d.Contents[k].(type) {
 		case Directory:
 			files = append(files, node.Files()...)
 		case File:
@@ -58,6 +69,7 @@ type File struct {
 
 func (f File) isAnINode() {}
 
+// Open opens the file for reading.
 func (f File) Open() *os.File {
 	handle, err := os.Open(f.localPath)
 	if err != nil {
@@ -94,6 +106,12 @@ func (s SymbolicLink) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// constructTree walks a directory and produces a Directory object (with linked
+// Files, Directories and SymbolicLinks) that represents the state of the
+// filesystem.
+//
+// Note: this function computes the hash of every file it encounters which may
+// cause churn if the filesystem is on a hard disk.
 func constructTree(dir string) Directory {
 	var root = Directory{
 		Contents: make(map[string]INode),

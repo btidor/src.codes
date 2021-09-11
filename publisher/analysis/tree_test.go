@@ -1,7 +1,14 @@
 package analysis
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -138,5 +145,124 @@ func TestSerializeNested(t *testing.T) {
 }`
 	if string(actual) != expected {
 		t.Errorf("Incorrect JSON serialization\nGot %#v\nExp %#v", string(actual), expected)
+	}
+}
+
+func setUpDummyTree() (string, error) {
+	tempdir, err := ioutil.TempDir("", "sctest")
+	if err != nil {
+		return "", err
+	}
+	fmt.Println(tempdir)
+	//defer os.RemoveAll(tempdir)
+
+	err = ioutil.WriteFile(
+		filepath.Join(tempdir, "hello.txt"),
+		[]byte("Hello, World!\n"), // c98c24b677eff44860afea6f493bbaec5bb1c4cbb209c6fc2bbb47f66ff2ad31
+		0644,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	err = os.Mkdir(filepath.Join(tempdir, "somedir"), 0755)
+	if err != nil {
+		return "", err
+	}
+
+	err = ioutil.WriteFile(
+		filepath.Join(tempdir, "somedir", "foo.bar"),
+		[]byte("Buzz\n"), // 49753fbc6dd206f47e0db4841da0a7c9b5150e75334121b3085fb994f1d3e192
+		0644,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	err = os.Symlink(
+		"../hello.txt",
+		filepath.Join(tempdir, "somedir", "somelink"),
+	)
+	if err != nil {
+		return "", err
+	}
+	return tempdir, nil
+}
+
+func TestFiles(t *testing.T) {
+	tempdir, err := setUpDummyTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var files = constructTree(tempdir).Files()
+	if len(files) != 2 {
+		t.Errorf("Wrong number of files: %#v", files)
+	}
+
+	if !strings.HasSuffix(files[0].localPath, "/hello.txt") {
+		t.Errorf("Incorrect first file: %#v", files[0])
+	}
+	if !strings.HasSuffix(files[1].localPath, "/somedir/foo.bar") {
+		t.Errorf("Incorrect second file: %#v", files[1])
+	}
+}
+
+func TestOpen(t *testing.T) {
+	tempdir, err := setUpDummyTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var file = constructTree(tempdir).Contents["hello.txt"].(File)
+	var handle = file.Open()
+	defer handle.Close()
+
+	var buf strings.Builder
+	_, err = io.Copy(&buf, handle)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if buf.String() != "Hello, World!\n" {
+		t.Errorf("Unexpected file contents: %#v", buf.String())
+	}
+}
+
+func TestConstructTree(t *testing.T) {
+	tempdir, err := setUpDummyTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tree = constructTree(tempdir)
+	if len(tree.Contents) != 2 {
+		t.Errorf("Wrong number of elements in root: %#v", tree)
+	}
+
+	f1 := tree.Contents["hello.txt"].(File)
+	if f1.Size != 14 {
+		t.Errorf("File has incorrect size: %#v", f1)
+	}
+	if hex.EncodeToString(f1.SHA256[:]) != "c98c24b677eff44860afea6f493bbaec5bb1c4cbb209c6fc2bbb47f66ff2ad31" {
+		t.Errorf("File has incorrect hash: %#v", f1)
+	}
+
+	dir := tree.Contents["somedir"].(Directory)
+	if len(dir.Contents) != 2 {
+		t.Errorf("Wrong number of elements in somedir: %#v", dir)
+	}
+
+	f2 := dir.Contents["foo.bar"].(File)
+	if f2.Size != 5 {
+		t.Errorf("File has incorrect size: %#v", f2)
+	}
+	if hex.EncodeToString(f2.SHA256[:]) != "49753fbc6dd206f47e0db4841da0a7c9b5150e75334121b3085fb994f1d3e192" {
+		t.Errorf("File has incorrect hash: %#v", f2)
+	}
+
+	sym := dir.Contents["somelink"].(SymbolicLink)
+	if sym.SymlinkTo != "../hello.txt" {
+		t.Errorf("Symlink has wrong destination: %#v", sym)
 	}
 }
