@@ -2,6 +2,8 @@ package analysis
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -37,20 +39,24 @@ func (d Directory) Files() []File {
 	return files
 }
 
+func (d Directory) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type     string           `json:"type"`
+		Contents map[string]INode `json:"contents"`
+	}{
+		Type:     "directory",
+		Contents: d.Contents,
+	})
+}
+
 type File struct {
 	Size   int64
-	SHA256 [64]byte
+	SHA256 [32]byte
 
 	localPath string
 }
 
 func (f File) isAnINode() {}
-
-func (f File) ShortHash() [8]byte {
-	var res [8]byte
-	copy(res[:], f.SHA256[:8])
-	return res
-}
 
 func (f File) Open() *os.File {
 	handle, err := os.Open(f.localPath)
@@ -60,11 +66,33 @@ func (f File) Open() *os.File {
 	return handle
 }
 
+func (f File) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type   string `json:"type"`
+		Size   int64  `json:"size"`
+		SHA256 string `json:"sha256"`
+	}{
+		Type:   "file",
+		Size:   f.Size,
+		SHA256: hex.EncodeToString(f.SHA256[:]),
+	})
+}
+
 type SymbolicLink struct {
 	SymlinkTo string
 }
 
 func (s SymbolicLink) isAnINode() {}
+
+func (s SymbolicLink) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type      string `json:"type"`
+		SymlinkTo string `json:"symlink_to"`
+	}{
+		Type:      "symlink",
+		SymlinkTo: s.SymlinkTo,
+	})
+}
 
 func constructTree(dir string) Directory {
 	var root Directory
