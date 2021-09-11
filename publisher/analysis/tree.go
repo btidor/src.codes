@@ -95,11 +95,11 @@ func (s SymbolicLink) MarshalJSON() ([]byte, error) {
 }
 
 func constructTree(dir string) Directory {
-	var root Directory
-
-	if !strings.HasSuffix(dir, "/") {
-		dir += "/"
+	var root = Directory{
+		Contents: make(map[string]INode),
 	}
+
+	dir = strings.TrimSuffix(dir, "/")
 
 	var parents = make(map[string]*Directory)
 	parents[dir] = &root
@@ -109,8 +109,13 @@ func constructTree(dir string) Directory {
 			return err
 		}
 
+		if dir == path {
+			// skip root dir, we've already processed it
+			return nil
+		}
+
 		var node INode
-		parentdir, _ := filepath.Split(dir)
+		var parentdir = strings.TrimSuffix(filepath.Dir(path), "/")
 		if info.Mode().Type()&fs.ModeSymlink != 0 {
 			dst, err := os.Readlink(path)
 			if err != nil {
@@ -129,7 +134,7 @@ func constructTree(dir string) Directory {
 			node = obj
 		} else if info.Mode().IsRegular() {
 			var obj = File{
-				localPath: strings.TrimPrefix(path, dir),
+				localPath: path,
 				Size:      info.Size(),
 			}
 			h := sha256.New()
@@ -146,12 +151,17 @@ func constructTree(dir string) Directory {
 			}
 			copy(obj.SHA256[:], h.Sum(nil))
 			node = obj
-		} else if info.Mode()&os.ModeNamedPipe != 0 {
-			fmt.Printf("Skipping named pipe %#v\n", path)
 		} else {
-			err := fmt.Errorf("unknown special file at %#v", path)
-			panic(err)
+			if info.Mode()&os.ModeNamedPipe != 0 {
+				fmt.Printf("Skipping named pipe %#v\n", path)
+			} else {
+				err := fmt.Errorf("unknown special file at %#v", path)
+				panic(err)
+			}
+			// To skip, don't add node to parent.Contents
+			return nil
 		}
+
 		parent, found := parents[parentdir]
 		if !found {
 			return fmt.Errorf("parent not found: %s", parentdir)

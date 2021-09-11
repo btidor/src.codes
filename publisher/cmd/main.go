@@ -110,7 +110,6 @@ func processDistro(distro publisher.Distro) {
 			fmt.Println()
 			fmt.Println(string(debug.Stack()))
 			fmt.Println("*****************")
-			panic(err)
 		}
 	}()
 
@@ -187,7 +186,6 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 			fmt.Println()
 			fmt.Println(string(debug.Stack()))
 			fmt.Println("*****************")
-			panic(err)
 		}
 	}()
 
