@@ -19,7 +19,7 @@ func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 	res, err := db.Exec(
 		"INSERT INTO package_versions (distro, pkg_name, pkg_version, sc_epoch)"+
 			" VALUES (?, ?, ?, ?)"+
-			" ON DUPLICATE KEY UPDATE distro = VALUES(distro)",
+			" ON DUPLICATE KEY UPDATE sc_epoch = VALUES (sc_epoch)",
 		a.Pkg.Source.Distro, a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
 	)
 	if err != nil {
