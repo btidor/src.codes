@@ -21,6 +21,7 @@ type ManifestEntry = {
 } | {
     type: 'symlink',
     symlink_to: string,
+    is_directory: boolean,
 };
 
 export default class RemoteCache {
@@ -109,7 +110,7 @@ export default class RemoteCache {
         for (let [name, item] of Object.entries(json.contents) as [string, ManifestEntry][]) {
             var child;
             if (item.type === 'symlink') {
-                child = new SymbolicLink(parent, item.symlink_to);
+                child = new SymbolicLink(parent, item.symlink_to, item.is_directory);
             } else if (item.type === 'file') {
                 child = new File(parent, item.size, item.sha256);
             } else if (item.type === 'directory') {
