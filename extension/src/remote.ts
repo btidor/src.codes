@@ -11,6 +11,18 @@ const API_URLS = {
 
 type PackageIndex = { [name: string]: { version: string, epoch: number; }; };
 
+type ManifestEntry = {
+    type: 'file',
+    size: number,
+    sha256: string,
+} | {
+    type: 'directory',
+    contents: { [key: string]: ManifestEntry; },
+} | {
+    type: 'symlink',
+    symlink_to: string,
+};
+
 export default class RemoteCache {
     // The distribution slug: "hirsute", "bullseye", etc.
     private distribution: string;
@@ -94,18 +106,18 @@ export default class RemoteCache {
 
     private parseJSONManifest(json: any, grandparent?: Directory): Directory {
         let parent = new Directory(grandparent);
-        for (let item of Object.values(json.contents || []) as any) {
+        for (let [name, item] of Object.entries(json.contents) as [string, ManifestEntry][]) {
             var child;
-            if (item.type! === 'symlink') {
+            if (item.type === 'symlink') {
                 child = new SymbolicLink(parent, item.symlink_to);
-            } else if (item.type! === 'file') {
-                child = new File(parent, item.size!, item.sha256!);
-            } else if (item.type! === 'directory') {
+            } else if (item.type === 'file') {
+                child = new File(parent, item.size, item.sha256);
+            } else if (item.type === 'directory') {
                 child = this.parseJSONManifest(item, parent);
             } else {
-                throw new Error("Unknown member type: " + item.type!);
+                throw new Error("Unknown manifest item: " + item);
             }
-            parent.addChild(item.name!, child);
+            parent.addChild(name, child);
         }
         return parent;
     }
