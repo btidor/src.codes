@@ -1,5 +1,4 @@
-// Simple server for local development
-
+// A simple server for local development.
 package main
 
 import (

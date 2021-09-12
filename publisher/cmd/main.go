@@ -146,7 +146,7 @@ func processDistro(distro publisher.Distro) {
 	for _, pkg := range packages {
 		count += 1
 		ex, found := existing[pkg.Name]
-		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch {
+		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && false {
 			// Package version has been processed on a previous run
 			pkgvers = append(pkgvers, ex)
 			fmt.Printf("[%s] Skip: % 5d / % 5d\n", distro.Name, count, len(packages))
