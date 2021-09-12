@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/btidor/src.codes/fzf"
 	"github.com/btidor/src.codes/internal"
@@ -31,9 +33,11 @@ type Uploader struct {
 	ls   *b2.Bucket
 	cat  *b2.Bucket
 	meta *b2.Bucket
+
+	downloadThreads int
 }
 
-func NewUploader(lsvar, catvar, metavar string) (*Uploader, error) {
+func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader, error) {
 	var ctx = context.Background()
 
 	ls, err := connect(ctx, lsvar)
@@ -50,7 +54,7 @@ func NewUploader(lsvar, catvar, metavar string) (*Uploader, error) {
 	}
 
 	return &Uploader{
-		ctx, ls, cat, meta,
+		ctx, ls, cat, meta, downloadThreads,
 	}, nil
 }
 
@@ -142,6 +146,33 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 		panic(err)
 	}
 
+	var wg sync.WaitGroup
+	jobs := make(chan *url.URL)
+	results := make(chan *bytes.Buffer, 16)
+	for w := 0; w < up.downloadThreads; w++ {
+		wg.Add(1)
+		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
+			defer wg.Done()
+			for u := range jobs {
+				fmt.Printf("Downloading %s\n", u.String())
+				results <- internal.DownloadFile(u)
+				fmt.Printf("  done %s\n", u.String())
+			}
+		}(w, jobs, &wg)
+	}
+
+	var wg2 sync.WaitGroup
+	wg2.Add(1)
+	go func() {
+		defer wg2.Done()
+		for buf := range results {
+			err := enc.EncodeBytes(buf.Bytes())
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
+
 	for _, pv := range pkgvers {
 		filename := fmt.Sprintf(
 			"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
@@ -152,11 +183,13 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 		// RawPath unless it's a valid encoding of Path. See:
 		// https://github.com/golang/go/issues/17340
 		u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
-		buf := internal.DownloadFile(u)
-		if err := enc.EncodeBytes(buf.Bytes()); err != nil {
-			panic(err)
-		}
+		jobs <- u
 	}
+
+	close(jobs)
+	wg.Wait()
+	close(results)
+	wg2.Wait()
 
 	remote := path.Join(distro, "paths.fzf")
 
