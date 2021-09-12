@@ -2,7 +2,7 @@ package fzf
 
 type Result struct {
 	Score int
-	Line  *string
+	Line  string
 }
 
 type ResultHeap []Result
