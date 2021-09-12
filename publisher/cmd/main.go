@@ -25,6 +25,12 @@ const (
 	uploadThreads   int    = 4
 	dbBatchSize     int    = 2048
 	checkpointLimit int    = 32
+
+	// When reindex mode is on, all packages are reprocessed and index files are
+	// recomputed and reuploaded. To save on database reads, we do not run file
+	// deduplication and no files from the archive are uploaded. (This has a
+	// similar effect to bumping the epoch, but is intended for development.)
+	reindex bool = false
 )
 
 var db *database.Database
@@ -146,7 +152,7 @@ func processDistro(distro publisher.Distro) {
 	for _, pkg := range packages {
 		count += 1
 		ex, found := existing[pkg.Name]
-		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && false {
+		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && !reindex {
 			// Package version has been processed on a previous run
 			pkgvers = append(pkgvers, ex)
 			fmt.Printf("[%s] Skip: % 5d / % 5d\n", distro.Name, count, len(packages))
@@ -198,7 +204,10 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 
 	fmt.Printf("[%s] Begin deduplicate + upload\n", pkg.Slug())
 
-	var files = db.DeduplicateFiles(archive.Tree.Files())
+	var files []analysis.File
+	if !reindex {
+		files = db.DeduplicateFiles(archive.Tree.Files())
+	}
 
 	var wg sync.WaitGroup
 	jobs := make(chan analysis.File)
