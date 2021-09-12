@@ -23,14 +23,16 @@ const (
 	configPath      string = "distributions.toml"
 	pkgThreads      int    = 8
 	uploadThreads   int    = 4
+	downloadThreads int    = 16
 	dbBatchSize     int    = 2048
 	checkpointLimit int    = 32
 
-	// When reindex mode is on, all packages are reprocessed and index files are
+	// When reindexPkgs mode is on, all packages are reprocessed and index files are
 	// recomputed and reuploaded. To save on database reads, we do not run file
 	// deduplication and no files from the archive are uploaded. (This has a
 	// similar effect to bumping the epoch, but is intended for development.)
-	reindex bool = false
+	reindexPkgs   bool = false
+	reindexDistro bool = false
 )
 
 var db *database.Database
@@ -61,7 +63,7 @@ func main() {
 
 	// Connect to Backblaze B2. Requires the env vars listed below to contain a
 	// "keyId:applicationKey:bucketName" tuple.
-	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY")
+	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", downloadThreads)
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +154,7 @@ func processDistro(distro publisher.Distro) {
 	for _, pkg := range packages {
 		count += 1
 		ex, found := existing[pkg.Name]
-		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && !reindex {
+		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && !reindexPkgs {
 			// Package version has been processed on a previous run
 			pkgvers = append(pkgvers, ex)
 			fmt.Printf("[%s] Skip: % 5d / % 5d\n", distro.Name, count, len(packages))
@@ -166,8 +168,15 @@ func processDistro(distro publisher.Distro) {
 	wg.Wait()
 	close(results)
 
+	var processed = false
 	for pv := range results {
 		pkgvers = append(pkgvers, pv)
+		processed = true
+	}
+	if !processed && !reindexDistro {
+		// We didn't update any packages, so skip recomputing the indexes.
+		fmt.Printf("[%s] No new packages, skipping index creation\n", distro.Name)
+		return
 	}
 
 	fmt.Printf("[%s] Updating table of contents in DB\n", distro.Name)
@@ -177,6 +186,7 @@ func processDistro(distro publisher.Distro) {
 	pkgvers = db.ListDistroContents(distro.Name)
 	up.UploadPackageList(distro.Name, pkgvers)
 
+	// TODO: make this faster!
 	fmt.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)
 	up.ConsolidateFzfIndex(distro.Name, pkgvers)
 
@@ -205,7 +215,7 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 	fmt.Printf("[%s] Begin deduplicate + upload\n", pkg.Slug())
 
 	var files []analysis.File
-	if !reindex {
+	if !reindexPkgs {
 		files = db.DeduplicateFiles(archive.Tree.Files())
 	}
 
