@@ -165,13 +165,14 @@ func processDistro(distro publisher.Distro) {
 	}
 
 	fmt.Printf("[%s] Updating table of contents in DB\n", distro.Name)
-
 	db.UpdateDistroContents(distro.Name, pkgvers)
 
 	fmt.Printf("[%s] Preparing package list\n", distro.Name)
-
 	pkgvers = db.ListDistroContents(distro.Name)
 	up.UploadPackageList(distro.Name, pkgvers)
+
+	fmt.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)
+	up.ConsolidateFzfIndex(distro.Name, pkgvers)
 
 	fmt.Printf("[%s] Done!\n", distro.Name)
 }
@@ -230,14 +231,15 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 	wg.Wait()
 
 	fmt.Printf("[%s] Uploaded %d files; uploading tree\n", pkg.Slug(), len(files))
-
 	up.UploadTree(archive)
 
-	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
+	fmt.Printf("[%s] Computing and uploading fzf index\n", pkg.Slug())
+	fzf := analysis.ConstructFzfIndex(archive)
+	up.UploadFzfPackageIndex(*archive.Pkg, fzf)
 
+	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)
 
 	fmt.Printf("[%s] Done!\n", pkg.Slug())
-
 	return pv
 }

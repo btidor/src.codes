@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -10,13 +11,18 @@ import (
 	"path"
 	"strings"
 
+	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
+	"github.com/btidor/src.codes/publisher/apt"
 	"github.com/btidor/src.codes/publisher/database"
 	"github.com/kurin/blazer/b2"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+var lsBase = internal.URLMustParse("https://ls.src.codes")
 
 type Uploader struct {
 	ctx context.Context
@@ -92,7 +98,7 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	filename := fmt.Sprintf(
 		"%s_%s:%d.json", a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
 	)
-	remote := path.Join(a.Pkg.Source.Distro, filename)
+	remote := path.Join(a.Pkg.Source.Distro, a.Pkg.Name, filename)
 
 	obj := up.ls.Object(remote)
 	out := obj.NewWriter(up.ctx)
@@ -101,6 +107,60 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 		panic(err)
 	}
 	if err = out.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf analysis.FzfNode) {
+	data, err := msgpack.Marshal(fzf)
+	if err != nil {
+		panic(err)
+	}
+
+	filename := fmt.Sprintf(
+		"%s_%s:%d.fzf", pkg.Name, pkg.Version, publisher.Epoch,
+	)
+	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
+
+	obj := up.ls.Object(remote)
+	out := obj.NewWriter(up.ctx)
+	if _, err := out.Write(data); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err = out.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.PackageVersion) {
+	// Download and concatenate indexes for each package
+	var consolidated = new(bytes.Buffer)
+	enc := msgpack.NewEncoder(consolidated)
+	if err := enc.EncodeArrayLen(len(pkgvers)); err != nil {
+		panic(err)
+	}
+
+	for _, pv := range pkgvers {
+		filename := fmt.Sprintf(
+			"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
+		)
+		url := internal.URLWithPath(lsBase, distro, pv.Name, filename)
+		buf := internal.DownloadFile(url)
+		if err := enc.EncodeBytes(buf.Bytes()); err != nil {
+			panic(err)
+		}
+	}
+
+	remote := path.Join(distro, "paths.fzf")
+
+	obj := up.meta.Object(remote)
+	out := obj.NewWriter(up.ctx)
+	if _, err := io.Copy(out, consolidated); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err := out.Close(); err != nil {
 		panic(err)
 	}
 }

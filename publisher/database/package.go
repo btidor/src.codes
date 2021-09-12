@@ -34,7 +34,7 @@ func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 	return PackageVersion{
 		ID:      id,
 		Name:    a.Pkg.Name,
-		Version: a.Pkg.Name,
+		Version: a.Pkg.Version,
 		Epoch:   publisher.Epoch,
 	}
 }
