@@ -146,8 +146,13 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 		filename := fmt.Sprintf(
 			"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
 		)
-		url := internal.URLWithPath(lsBase, distro, pv.Name, filename)
-		buf := internal.DownloadFile(url)
+		u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
+		// Backblaze incorrectly treats a "+" in the path component as a space,
+		// so we need to escape this. Debugging FYI: Url.String() will ignore
+		// RawPath unless it's a valid encoding of Path. See:
+		// https://github.com/golang/go/issues/17340
+		u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
+		buf := internal.DownloadFile(u)
 		if err := enc.EncodeBytes(buf.Bytes()); err != nil {
 			panic(err)
 		}
