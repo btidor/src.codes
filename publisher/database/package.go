@@ -16,7 +16,7 @@ type PackageVersion struct {
 }
 
 func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
-	res, err := db.Exec(
+	_, err := db.Exec(
 		"INSERT INTO package_versions (distro, pkg_name, pkg_version, sc_epoch)"+
 			" VALUES (?, ?, ?, ?)"+
 			" ON DUPLICATE KEY UPDATE sc_epoch = VALUES (sc_epoch)",
@@ -26,8 +26,14 @@ func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 		panic(err)
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
+	// Normally we'd use LastInsertId(), but it's always returning zero.
+	var id int64
+	row := db.QueryRow(
+		"SELECT id FROM package_versions WHERE"+
+			" distro = ? AND pkg_name = ? AND pkg_version = ?",
+		a.Pkg.Source.Distro, a.Pkg.Name, a.Pkg.Version,
+	)
+	if err := row.Scan(&id); err != nil {
 		panic(err)
 	}
 
