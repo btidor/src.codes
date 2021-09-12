@@ -76,11 +76,6 @@ export class Directory implements vscode.FileStat, Node {
         for (let part of path) {
             node = node.descend(part);
         }
-        if (node instanceof SymbolicLink) {
-            // Resolve symbolic links before returning them, so we know whether
-            // it refers to a file or a directory.
-            node.updateType();
-        }
         return node;
     }
 }
@@ -95,10 +90,13 @@ export class SymbolicLink implements vscode.FileStat, Node {
 
     destination: string;
 
-    constructor(parent: Directory, destination: string) {
+    constructor(parent: Directory, destination: string, isDir: boolean) {
         this.parent = parent;
-        // TODO: determine type by resolving symlink!
-        this.type = vscode.FileType.SymbolicLink;
+        if (isDir) {
+            this.type = vscode.FileType.SymbolicLink | vscode.FileType.Directory;
+        } else {
+            this.type = vscode.FileType.SymbolicLink | vscode.FileType.File;
+        }
         this.ctime = 0;
         this.mtime = 0;
         this.size = 0;
@@ -106,18 +104,6 @@ export class SymbolicLink implements vscode.FileStat, Node {
             throw new Error("Symbolic links must not specify an absolute path");
         }
         this.destination = destination;
-    }
-
-    updateType() {
-        try {
-            if (this.resolveLinks() instanceof File) {
-                this.type |= vscode.FileType.File;
-            } else {
-                this.type |= vscode.FileType.Directory;
-            }
-        } catch {
-            this.type |= vscode.FileType.Unknown;
-        }
     }
 
     resolveLinks(): File | Directory {

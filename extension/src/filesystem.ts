@@ -81,14 +81,7 @@ export default class SourceCodesFilesystem implements vscode.FileSystemProvider 
                     if (node instanceof File) {
                         throw vscode.FileSystemError.FileNotADirectory();
                     } else if (node instanceof Directory) {
-                        let contents = node.contents;
-                        return Object.keys(contents).map(filename => {
-                            let child = contents[filename];
-                            if (child instanceof SymbolicLink) {
-                                child.updateType();
-                            }
-                            return [filename, child.type];
-                        });
+                        return Object.entries(node.contents).map(x => [x[0], x[1].type]);
                     } else {
                         absurd(node);
                     }
