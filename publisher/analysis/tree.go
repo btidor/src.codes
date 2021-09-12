@@ -92,6 +92,7 @@ func (f File) MarshalJSON() ([]byte, error) {
 
 type SymbolicLink struct {
 	SymlinkTo string
+	IsDir     bool
 }
 
 func (s SymbolicLink) isAnINode() {}
@@ -100,9 +101,11 @@ func (s SymbolicLink) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		Type      string `json:"type"`
 		SymlinkTo string `json:"symlink_to"`
+		IsDir     bool   `json:"is_directory"`
 	}{
 		Type:      "symlink",
 		SymlinkTo: s.SymlinkTo,
+		IsDir:     s.IsDir,
 	})
 }
 
@@ -139,10 +142,15 @@ func constructTree(dir string) Directory {
 			if err != nil {
 				return err
 			}
-			// TODO: can we determine if the destination is a file/directory
-			// based on Mode().Type()? If so, add to tree.
+			// We ignore errors here, since some packages contain invalid links.
+			// We'll treat these as file symlinks, not that it matters much.
+			var isDir bool
+			if dstInfo, err := os.Stat(path); err == nil {
+				isDir = dstInfo.IsDir()
+			}
 			node = SymbolicLink{
 				SymlinkTo: strings.TrimPrefix(dst, dir),
+				IsDir:     isDir,
 			}
 		} else if info.IsDir() {
 			var obj = Directory{
@@ -170,7 +178,7 @@ func constructTree(dir string) Directory {
 			copy(obj.SHA256[:], h.Sum(nil))
 			node = obj
 		} else {
-			if info.Mode()&os.ModeNamedPipe != 0 {
+			if info.Mode()&fs.ModeNamedPipe != 0 {
 				fmt.Printf("Skipping named pipe %#v\n", path)
 			} else {
 				err := fmt.Errorf("unknown special file at %#v", path)

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -70,6 +71,7 @@ func TestSerializeSymbolicLink(t *testing.T) {
 			"file.txt": file,
 			"alias": SymbolicLink{
 				SymlinkTo: "file.txt",
+				IsDir:     false,
 			},
 		},
 	}
@@ -83,7 +85,8 @@ func TestSerializeSymbolicLink(t *testing.T) {
   "contents": {
     "alias": {
       "type": "symlink",
-      "symlink_to": "file.txt"
+      "symlink_to": "file.txt",
+      "is_directory": false
     },
     "file.txt": {
       "type": "file",
@@ -127,7 +130,8 @@ func TestSerializeNested(t *testing.T) {
       "contents": {
         "alias": {
           "type": "symlink",
-          "symlink_to": "../subdir2/file.txt"
+          "symlink_to": "../subdir2/file.txt",
+          "is_directory": false
         }
       }
     },
@@ -186,6 +190,14 @@ func setUpDummyTree() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	err = os.Symlink(
+		"../somedir",
+		filepath.Join(tempdir, "somedir", "self"),
+	)
+	if err != nil {
+		return "", err
+	}
 	return tempdir, nil
 }
 
@@ -229,7 +241,7 @@ func TestOpen(t *testing.T) {
 	}
 }
 
-func TestConstructTree(t *testing.T) {
+func TestConstructTreeBasic(t *testing.T) {
 	tempdir, err := setUpDummyTree()
 	if err != nil {
 		t.Fatal(err)
@@ -249,7 +261,7 @@ func TestConstructTree(t *testing.T) {
 	}
 
 	dir := tree.Contents["somedir"].(Directory)
-	if len(dir.Contents) != 2 {
+	if len(dir.Contents) != 3 {
 		t.Errorf("Wrong number of elements in somedir: %#v", dir)
 	}
 
@@ -261,8 +273,54 @@ func TestConstructTree(t *testing.T) {
 		t.Errorf("File has incorrect hash: %#v", f2)
 	}
 
-	sym := dir.Contents["somelink"].(SymbolicLink)
-	if sym.SymlinkTo != "../hello.txt" {
+	s1 := dir.Contents["somelink"].(SymbolicLink)
+	if s1.SymlinkTo != "../hello.txt" {
+		t.Errorf("Symlink has wrong destination: %#v", s1)
+	}
+	if s1.IsDir {
+		t.Errorf("Symlink is to a directory: %#v", s1)
+	}
+
+	s2 := dir.Contents["self"].(SymbolicLink)
+	if s2.SymlinkTo != "../somedir" {
+		t.Errorf("Symlink has wrong destination: %#v", s2)
+	}
+	if !s2.IsDir {
+		t.Errorf("Symlink is to a file: %#v", s2)
+	}
+}
+
+func TestConstructTreeInvalid(t *testing.T) {
+	tempdir, err := setUpDummyTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Symlink(
+		"nosuchthing",
+		filepath.Join(tempdir, "invalid"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = syscall.Mkfifo(filepath.Join(tempdir, "luigi"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tree = constructTree(tempdir)
+
+	sym := tree.Contents["invalid"].(SymbolicLink)
+	if sym.SymlinkTo != "nosuchthing" {
 		t.Errorf("Symlink has wrong destination: %#v", sym)
+	}
+	if sym.IsDir {
+		t.Errorf("Invalid symlinks should default to file type: %#v", sym)
+	}
+
+	p, found := tree.Contents["luigi"]
+	if found {
+		t.Errorf("Pipes should be ignored, found %#v", p)
 	}
 }
