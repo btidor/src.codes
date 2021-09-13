@@ -16,7 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt install -y -q \
     python-is-python3
 
 # Install development tools
-RUN apt install -y -q silversearcher-ag mysql-client && \
+RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
     wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
     dpkg --install pscale_0.72.0_linux_amd64.deb
 
