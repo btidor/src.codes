@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path"
 	"sort"
 	"strings"
 	"time"
@@ -86,7 +85,7 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	heap.Init(h)
 
 	for _, pkg := range data {
-		s.score(query, &pkg, "", h)
+		s.score([]rune(query), &pkg, []byte(pkg.Name), h)
 	}
 
 	sort.SliceStable(*h, h.Less)
@@ -108,25 +107,28 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	fmt.Fprintf(w, "Warm: %t\n", warm)
 }
 
-func (s *Server) score(query string, n *Node, pfx string, h *ResultHeap) {
-	pfx = path.Join(pfx, n.Name)
+func (s *Server) score(query []rune, n *Node, pfx []byte, h *ResultHeap) {
+	pfx = append(pfx, []byte("/")...)
 
+	// Descend into subdirectories
 	for _, c := range n.Children {
-		s.score(query, c, pfx, h)
+		cpfx := append(pfx, []byte(n.Name)...)
+		s.score(query, c, cpfx, h)
 	}
 
+	// Score each file
 	for _, f := range n.Files {
-		target := path.Join(pfx, f)
-		chars := util.ToChars([]byte(target))
-		res, _ := algo.FuzzyMatchV1(false, false, true, &chars, []rune(query), false, nil)
+		target := append(pfx, []byte(f)...)
+		chars := util.ToChars(target)
+		res, _ := algo.FuzzyMatchV1(false, false, true, &chars, query, false, nil)
 
 		if res.Score <= 0 {
 			continue
 		} else if len(*h) < s.ResultLimit {
-			heap.Push(h, Result{res.Score, target})
+			heap.Push(h, Result{res.Score, string(target)})
 		} else if res.Score > h.Peek().Score {
 			heap.Pop(h)
-			heap.Push(h, Result{res.Score, target})
+			heap.Push(h, Result{res.Score, string(target)})
 		}
 	}
 }
