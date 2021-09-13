@@ -2,6 +2,9 @@
 node_modules/
 vendor/
 
+# Profiling artifacts
+*.pprof
+
 # For Vercel
 .vercel
 
