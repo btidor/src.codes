@@ -30,7 +30,7 @@
       "has": [
         {
           "type": "host",
-          "value": "fzf.src.codes"
+          "value": "(fzf.src.codes|fzf-.*)"
         }
       ]
     }
@@ -42,7 +42,7 @@
       "has": [
         {
           "type": "host",
-          "value": "fzf.src.codes"
+          "value": "(fzf.src.codes|fzf-.*)"
         }
       ]
     },
@@ -52,7 +52,7 @@
       "has": [
         {
           "type": "host",
-          "value": "fzf.src.codes"
+          "value": "(fzf.src.codes|fzf-.*)"
         }
       ]
     }
