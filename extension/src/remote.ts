@@ -59,7 +59,7 @@ export default class RemoteCache {
                 }
 
                 let filename = packageName + "_" + entry.version + ":" + entry.epoch + ".json";
-                let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, filename);
+                let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, packageName, filename);
                 return axios
                     .get(url.toString(), { responseType: 'json' })
                     .then(res => {
