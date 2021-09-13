@@ -25,6 +25,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		server = &fzf.Server{
 			Meta:        base,
 			Commit:      commit,
+			Parallelism: 8,
 			ResultLimit: 100,
 		}
 	}

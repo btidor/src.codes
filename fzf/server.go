@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/btidor/src.codes/internal"
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	Meta        *url.URL
 	Commit      string
+	Parallelism int
 	ResultLimit int
 
 	cache map[string][]Node
@@ -81,11 +83,44 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 		return
 	}
 
-	var h = &ResultHeap{}
-	heap.Init(h)
+	var wg sync.WaitGroup
+	var jobs = make(chan Node)
+	var results = make(chan Result, s.Parallelism*s.ResultLimit)
+	for w := 0; w < s.Parallelism; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			var h = &ResultHeap{}
+			heap.Init(h)
+			for pkg := range jobs {
+				s.score([]rune(query), &pkg, []byte(pkg.Name), h)
+			}
+
+			sort.SliceStable(*h, h.Less)
+
+			for i := len(*h) - 1; i >= 0; i-- {
+				results <- (*h)[i]
+			}
+		}()
+	}
 
 	for _, pkg := range data {
-		s.score([]rune(query), &pkg, []byte(pkg.Name), h)
+		jobs <- pkg
+	}
+	close(jobs)
+	wg.Wait()
+	close(results)
+
+	var h = &ResultHeap{}
+	heap.Init(h)
+	for res := range results {
+		if len(*h) < s.ResultLimit {
+			heap.Push(h, res)
+		} else if res.Score > h.Peek().Score {
+			heap.Pop(h)
+			heap.Push(h, res)
+		}
 	}
 
 	sort.SliceStable(*h, h.Less)
@@ -95,7 +130,6 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 		fmt.Fprintf(w, "%d %s\n", entry.Score, entry.Line)
 	}
 
-	// TODO: profile and speed up
 	w.Write([]byte("\n"))
 	fmt.Fprintf(w, "Query: %#v\n", query)
 	if len(*h) >= s.ResultLimit {

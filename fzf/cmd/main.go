@@ -32,6 +32,7 @@ func main() {
 	server = fzf.Server{
 		Meta:        base,
 		Commit:      "dev",
+		Parallelism: 8,
 		ResultLimit: 100,
 	}
 	server.EnsureIndex("hirsute")
