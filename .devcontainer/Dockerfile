@@ -18,8 +18,13 @@ RUN DEBIAN_FRONTEND=noninteractive apt install -y -q \
 # Install development tools
 RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
     wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
-    dpkg --install pscale_0.72.0_linux_amd64.deb
+    dpkg --install pscale_0.72.0_linux_amd64.deb && \
+    apt install -y -q linux-tools-$(uname -r) google-perftools libgoogle-perftools-dev llvm
 
 # Install Go
 RUN (curl -sL https://golang.org/dl/go1.17.1.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
+
+# Install Rust
+RUN su vscode -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" && \
+    apt install -y -q libssl-dev gnuplot

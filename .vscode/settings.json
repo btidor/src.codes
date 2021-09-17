@@ -1,17 +1,21 @@
 {
     "files.exclude": {
         ".vercel": true,
+        "api/target": true,
         "build": true,
         "extension/node_modules": true,
         "extension/dist": true,
+        "fzf/target": true,
         "vendor": true
     },
     "search.exclude": {
         ".vercel": true,
+        "api/target": true,
         "build": true,
         "extension/node_modules": true,
         "extension/dist": true,
-        "vendor": true
+        "fzf/target": true,
+        "vendor": true,
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off"
