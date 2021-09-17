@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/btidor/src.codes/fzf"
 	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
@@ -116,7 +115,7 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	}
 }
 
-func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf fzf.Node) {
+func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf analysis.Node) {
 	data, err := msgpack.Marshal(fzf)
 	if err != nil {
 		panic(err)

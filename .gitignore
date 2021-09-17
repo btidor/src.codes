@@ -5,6 +5,9 @@ vendor/
 # Profiling artifacts
 *.pprof
 
+# Local cache
+*.fzf
+
 # For Vercel
 .vercel
 

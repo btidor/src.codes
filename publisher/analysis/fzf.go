@@ -2,16 +2,23 @@ package analysis
 
 import (
 	"fmt"
-
-	"github.com/btidor/src.codes/fzf"
 )
 
-func ConstructFzfIndex(a Archive) fzf.Node {
+type Node struct {
+	//lint:ignore U1000 msgpack config options
+	_msgpack struct{} `msgpack:",as_array"`
+
+	Name     string
+	Files    []string
+	Children []*Node
+}
+
+func ConstructFzfIndex(a Archive) Node {
 	return fzfIndexDirectory(a.Pkg.Name, a.Tree)
 }
 
-func fzfIndexDirectory(name string, dir Directory) fzf.Node {
-	var node = fzf.Node{
+func fzfIndexDirectory(name string, dir Directory) Node {
+	var node = Node{
 		Name: name,
 	}
 	for name, value := range dir.Contents {

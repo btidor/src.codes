@@ -1,7 +1,7 @@
 package fzf
 
 type Result struct {
-	Score int
+	Score uint
 	Line  string
 }
 
@@ -24,5 +24,5 @@ func (r *ResultHeap) Pop() interface{} {
 }
 
 func (r ResultHeap) Peek() Result {
-	return r[len(r)-1]
+	return r[0]
 }
