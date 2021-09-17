@@ -3,6 +3,7 @@ package fzf
 import (
 	"container/heap"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -63,7 +64,12 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	var parts = strings.SplitN(r.URL.Path, "/", 2)
 	if len(parts) < 2 || parts[1] == "" {
 		// Request to "/"
-		fmt.Fprintf(w, "Hello from fzf@%s!", s.Commit)
+		fmt.Fprintf(w, "Hello from fzf@%s!\n", s.Commit)
+		c, err := ioutil.ReadFile("/proc/cpuinfo")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "\n%s\n", c)
 		return
 	}
 
