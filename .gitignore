@@ -4,6 +4,7 @@ vendor/
 
 # Profiling artifacts
 *.pprof
+perf.data*
 
 # Local cache
 *.fzf
@@ -12,5 +13,7 @@ vendor/
 .vercel
 
 # src.codes build directories
-/extension/dist/
+/api/target/
 /build/
+/extension/dist/
+/fzf/target/

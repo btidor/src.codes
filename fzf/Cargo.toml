@@ -1,0 +1,25 @@
+[package]
+name = "fzf"
+version = "1.0.0"
+edition = "2018"
+
+[lib]
+name = "fzf"
+path = "src/lib.rs"
+
+[dependencies]
+array-init = "^2.0"
+http = "^0.1"
+reqwest = { version = "^0.11", features = ["blocking"] }
+rmp = "^0.8"
+rouille = "^3.3"
+
+[dev-dependencies]
+criterion = { version = "^0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[profile.release]
+debug = true
