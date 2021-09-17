@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/btidor/src.codes/internal"
-	"github.com/junegunn/fzf/src/algo"
-	"github.com/junegunn/fzf/src/util"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -51,6 +49,9 @@ func (s *Server) EnsureIndex(distro string) bool {
 			panic(err)
 		}
 
+		// Strip leading '/'
+		node.Name = node.Name[1:]
+
 		s.cache[distro] = append(s.cache[distro], node)
 	}
 	return false
@@ -81,11 +82,15 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 		return
 	}
 
+	// TODO: enforce max query length
+
 	var h = &ResultHeap{}
 	heap.Init(h)
 
+	matcher := NewMatcher(query)
+
 	for _, pkg := range data {
-		s.score([]rune(query), &pkg, []byte(pkg.Name), h)
+		s.score(matcher.Advance(pkg.Name), pkg, h)
 	}
 
 	sort.SliceStable(*h, h.Less)
@@ -107,28 +112,23 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request, warm bool) {
 	fmt.Fprintf(w, "Warm: %t\n", warm)
 }
 
-func (s *Server) score(query []rune, n *Node, pfx []byte, h *ResultHeap) {
-	pfx = append(pfx, []byte("/")...)
-
+func (s *Server) score(matcher Matcher, n Node, h *ResultHeap) {
 	// Descend into subdirectories
 	for _, c := range n.Children {
-		cpfx := append(pfx, []byte(n.Name)...)
-		s.score(query, c, cpfx, h)
+		s.score(matcher.Advance(c.Name), c, h)
 	}
 
 	// Score each file
 	for _, f := range n.Files {
-		target := append(pfx, []byte(f)...)
-		chars := util.ToChars(target)
-		res, _ := algo.FuzzyMatchV1(false, false, true, &chars, query, false, nil)
+		score := matcher.Score(f)
 
-		if res.Score <= 0 {
+		if score <= 0 {
 			continue
 		} else if len(*h) < s.ResultLimit {
-			heap.Push(h, Result{res.Score, string(target)})
-		} else if res.Score > h.Peek().Score {
+			heap.Push(h, Result{score, matcher.Target(f)})
+		} else if score > h.Peek().Score {
 			heap.Pop(h)
-			heap.Push(h, Result{res.Score, string(target)})
+			heap.Push(h, Result{score, matcher.Target(f)})
 		}
 	}
 }
