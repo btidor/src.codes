@@ -1,3 +1,4 @@
+use crate::CharSet;
 use crate::Directory;
 use crate::PathComponent;
 use crate::Query;
@@ -70,6 +71,8 @@ pub struct Matcher<'a> {
     /// A vector of states, one per character in the query, representing the
     /// partial scores after ingesting the given path components.
     states: Vec<State>,
+    /// The characters matched in the given path components.
+    char_set: CharSet,
     /// The number of characters in the given path components.
     length: usize,
     /// The maximum number of results to include.
@@ -94,6 +97,7 @@ impl Matcher<'_> {
         Matcher {
             query,
             states,
+            char_set: CharSet::new(),
             length: 0,
             max_results,
         }
@@ -105,12 +109,19 @@ impl Matcher<'_> {
         self.advance(&directory.name);
 
         let ostates = self.states.to_vec();
+        let ocharset = self.char_set;
         let olength = self.length;
         let path = path.to_owned() + &directory.name.string;
 
         for file in &directory.files {
+            let mut cs = file.char_set.to_owned();
+            cs.incorporate(&self.char_set);
+            if !self.query.covered_by(&cs) {
+                continue;
+            }
             let score = self.score(file);
             self.states.copy_from_slice(&ostates);
+            self.char_set = ocharset;
             self.length = olength;
 
             if score == 0 {
@@ -118,21 +129,24 @@ impl Matcher<'_> {
             } else if h.len() < self.max_results {
                 h.push(Match {
                     score: score,
-                    path: path.to_owned() + file.as_string(),
+                    path: path.to_owned() + &file.string,
                 });
             } else if score > h.peek().unwrap().score {
                 h.pop();
                 h.push(Match {
                     score: score,
-                    path: path.to_owned() + file.as_string(),
+                    path: path.to_owned() + &file.string,
                 });
             }
         }
 
         for child in &directory.children {
-            if self.query.covered_by(&child.char_set) {
+            let mut cs = child.char_set.to_owned();
+            cs.incorporate(&self.char_set);
+            if self.query.covered_by(&cs) {
                 self.walk(&child, &path, h);
                 self.states.copy_from_slice(&ostates);
+                self.char_set = ocharset;
                 self.length = olength;
             }
         }
@@ -177,6 +191,7 @@ impl Matcher<'_> {
                 }
 
                 if next.score > self.states[q.index as usize].score {
+                    self.char_set.add_byte(item.byte);
                     self.states[q.index as usize] = next;
                 }
             }
