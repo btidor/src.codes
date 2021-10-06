@@ -72,6 +72,10 @@ impl Query {
             len: pairs.len(),
         };
 
+        if pairs.len() == 0 {
+            return None;
+        }
+
         // Add each character in the query to the data structure. We add items
         // in reverse order so that higher-indexed characters always appear
         // earlier in the `lookup` vectors, which is required by `Matcher`.
@@ -145,6 +149,9 @@ mod test {
         );
 
         assert_eq!(8, query.len);
+
+        let query = Query::new("");
+        assert!(query.is_none());
     }
 
     #[test]
@@ -196,8 +203,5 @@ mod test {
     fn len() {
         let q0 = Query::new("Hi There").unwrap();
         assert_eq!(8, q0.len());
-
-        let q1 = Query::new("").unwrap();
-        assert_eq!(0, q1.len());
     }
 }
