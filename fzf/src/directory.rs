@@ -41,12 +41,6 @@ pub struct PChar {
 }
 
 impl PathComponent {
-    /// Returns a reference to a String representing the full, printable name of
-    /// the path component.
-    pub fn as_string(&self) -> &String {
-        &self.string
-    }
-
     /// Returns an iterator over [PChar] objects representing the individual
     /// pre-processed characters of the path component.
     pub fn iter(&self) -> Iter<'_, PChar> {
@@ -213,7 +207,7 @@ mod tests {
     #[test]
     fn path_component_simple() {
         let pc = PathComponent::from("FooBarBaz.rs", true);
-        assert_eq!("FooBarBaz.rs", pc.as_string());
+        assert_eq!("FooBarBaz.rs", pc.string);
         assert_eq!(12, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -236,7 +230,7 @@ mod tests {
     #[test]
     fn path_component_complex() {
         let pc = PathComponent::from("a/b🦀:C", false);
-        assert_eq!("/a/b🦀:C", pc.as_string());
+        assert_eq!("/a/b🦀:C", pc.string);
         assert_eq!(7, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -267,16 +261,16 @@ mod tests {
         let (directory, remainder) = Directory::decode(&demo, true).unwrap();
         assert_eq!(0, remainder.len());
 
-        assert_eq!("root", directory.name.as_string());
+        assert_eq!("root", directory.name.string);
 
         assert_eq!(3, directory.files.len());
-        assert_eq!("/baz", directory.files[2].as_string());
+        assert_eq!("/baz", directory.files[2].string);
 
         assert_eq!(2, directory.children.len());
-        assert_eq!("/child2", directory.children[1].name.as_string());
+        assert_eq!("/child2", directory.children[1].name.string);
 
         assert_eq!(3, directory.children[1].files.len());
-        assert_eq!("/f2", directory.children[1].files[1].as_string())
+        assert_eq!("/f2", directory.children[1].files[1].string)
     }
 
     #[test]
@@ -288,7 +282,7 @@ mod tests {
         ];
         let directories = Directory::load(&demo).unwrap();
         assert_eq!(2, directories.len());
-        assert_eq!("root1", directories[0].name.as_string());
+        assert_eq!("root1", directories[0].name.string);
         assert_eq!(
             0x00148040_00000000_00028000_00000000,
             directories[0].char_set.extract_internals()
@@ -297,6 +291,6 @@ mod tests {
             0x00148040_00000000_00048000_00000000,
             directories[1].char_set.extract_internals()
         );
-        assert_eq!("/foo", directories[1].files[0].as_string());
+        assert_eq!("/foo", directories[1].files[0].string);
     }
 }
