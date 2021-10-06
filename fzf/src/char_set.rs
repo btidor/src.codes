@@ -26,6 +26,14 @@ impl CharSet {
         self.data |= 1 << lu;
     }
 
+    pub fn add_byte(&mut self, b: u8) {
+        let mut b = b;
+        if b >= 65 && b <= 90 {
+            b += 32;
+        }
+        self.data |= 1 << b;
+    }
+
     /// Adds another [CharSet] to the character set. `other` is left unchanged,
     /// while `self` is updated to contain the union of both sets.
     pub fn incorporate(&mut self, other: &Self) {
