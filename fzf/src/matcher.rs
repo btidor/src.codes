@@ -106,7 +106,7 @@ impl Matcher<'_> {
 
         let ostates = self.states.to_vec();
         let olength = self.length;
-        let path = path.to_owned() + directory.name.as_string();
+        let path = path.to_owned() + &directory.name.string;
 
         for file in &directory.files {
             let score = self.score(file);
