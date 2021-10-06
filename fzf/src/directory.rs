@@ -25,8 +25,11 @@ pub struct Directory {
 pub struct PathComponent {
     /// The pre-processed [PChar]s in the path component.
     data: Vec<PChar>,
-    /// The original string.
-    string: String,
+    /// A [String] representing the non-normalized printable name of the path
+    /// component.
+    pub string: String,
+    /// A [CharSet] representing the characters in the path component.
+    pub char_set: CharSet,
 }
 
 /// A character in a [PathComponent].
@@ -58,6 +61,7 @@ impl PathComponent {
     pub fn from(s: &str, initial: bool) -> PathComponent {
         let mut data = Vec::new();
         let mut string = String::new();
+        let mut char_set = CharSet::new();
         let mut bonus;
         if initial {
             // Start of path: following character gets an 8-point bonus.
@@ -72,6 +76,7 @@ impl PathComponent {
                 bonus: 0,
             });
             string.push_str("/");
+            char_set.add('/');
 
             // The character following the slash gets a 5-point bonus.
             bonus = 5;
@@ -95,6 +100,7 @@ impl PathComponent {
                 // a null byte, which will never be matched.
                 data.push(PChar { byte: 0, bonus: 0 });
             }
+            char_set.add(c);
 
             // If this character is a separator, compute the bonus for the
             // following character.
@@ -105,22 +111,11 @@ impl PathComponent {
             };
         }
 
-        PathComponent { data, string }
-    }
-
-    /// Computes a bit vector indicating which ASCII characters appear in the
-    /// path component. This vector is meant to be used in case-insensitive
-    /// comparisons, so all characters are lowercased before being added. If the
-    /// path component contains any non-ASCII characters, or characters outside
-    /// of the standard range (below 128), bit 0 is set and these characters are
-    /// skipped.
-    fn char_set(&self) -> CharSet {
-        let mut char_set = CharSet::new();
-        for ch in self.string.chars() {
-            char_set.add(ch);
+        PathComponent {
+            data,
+            string,
+            char_set,
         }
-
-        char_set
     }
 }
 
@@ -131,10 +126,8 @@ impl Directory {
         children: Vec<Directory>,
     ) -> Directory {
         let mut char_set = CharSet::new();
-        char_set.incorporate(&name.char_set());
-        files
-            .iter()
-            .for_each(|f| char_set.incorporate(&f.char_set()));
+        char_set.incorporate(&name.char_set);
+        files.iter().for_each(|f| char_set.incorporate(&f.char_set));
         children
             .iter()
             .for_each(|c| char_set.incorporate(&c.char_set));
@@ -223,7 +216,7 @@ mod tests {
 
         assert_eq!(
             0x040C8046_00000000_00004000_00000000,
-            pc.char_set().extract_internals()
+            pc.char_set.extract_internals()
         );
     }
 
@@ -246,7 +239,7 @@ mod tests {
 
         assert_eq!(
             0x0000000E_00000000_04008000_00000001,
-            pc.char_set().extract_internals()
+            pc.char_set.extract_internals()
         );
     }
 
