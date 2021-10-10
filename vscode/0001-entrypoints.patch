@@ -13,6 +13,7 @@ https://github.com/Felx-B/vscode-web
  	buildfile.workerExtensionHost,
  	buildfile.workerNotebook,
  	buildfile.workerLanguageDetection,
+	buildfile.workerLocalFileSearch,
 -	buildfile.workbenchDesktop,
 +	buildfile.workbenchWeb,
 +	buildfile.keyboardMaps,
