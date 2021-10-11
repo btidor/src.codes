@@ -2,6 +2,7 @@ package upload
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -199,6 +200,35 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 		panic(err)
 	}
 	if err := out.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
+	var in bytes.Buffer
+	zw := gzip.NewWriter(&in)
+
+	_, err := zw.Write(ctags)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
+
+	filename := fmt.Sprintf(
+		"%s_%s:%d.tags.gz", pkg.Name, pkg.Version, publisher.Epoch,
+	)
+	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
+
+	obj := up.ls.Object(remote)
+	out := obj.NewWriter(up.ctx)
+	if _, err := io.Copy(out, &in); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err = out.Close(); err != nil {
 		panic(err)
 	}
 }

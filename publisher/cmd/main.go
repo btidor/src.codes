@@ -256,6 +256,10 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 	fzf := analysis.ConstructFzfIndex(archive)
 	up.UploadFzfPackageIndex(*archive.Pkg, fzf)
 
+	fmt.Printf("[%s] Computing and uploading ctags index\n", pkg.Slug())
+	ctags := analysis.ConstructCtagsIndex(archive)
+	up.UploadCtagsPackageIndex(*archive.Pkg, ctags)
+
 	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)
 
