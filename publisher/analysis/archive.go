@@ -82,6 +82,13 @@ func DownloadExtractAndWalkTree(pkg apt.Package) Archive {
 		panic(err)
 	}
 
+	// The quilt tool, used by dpkg-source, stores bookkeeping information in
+	// this directory. Delete it so it's not included in analysis.
+	err = os.RemoveAll(path.Join(tempdir, "source", ".pc"))
+	if err != nil {
+		panic(err)
+	}
+
 	// Walk, hash and construct tree
 	var tree = constructTree(extracted)
 
