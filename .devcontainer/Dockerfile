@@ -11,15 +11,15 @@ RUN (curl -sL https://deb.nodesource.com/setup_14.x | bash) && \
 
 # Pre-install VS Code build dependencies (used by vscode/build) so they're
 # cached in a layer.
-RUN DEBIAN_FRONTEND=noninteractive apt install -y -q \
-    build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev \
-    python-is-python3
+RUN apt install -y -q build-essential g++ libx11-dev libxkbfile-dev \
+        libsecret-1-dev python-is-python3
 
 # Install development tools
 RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
     wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
     dpkg --install pscale_0.72.0_linux_amd64.deb && \
-    apt install -y -q linux-tools-$(uname -r) google-perftools libgoogle-perftools-dev llvm
+    apt install -y -q linux-tools-$(uname -r) google-perftools \
+        libgoogle-perftools-dev llvm
 
 # Install Go
 RUN (curl -sL https://golang.org/dl/go1.17.1.linux-amd64.tar.gz | tar xzC /usr/local) && \
@@ -28,3 +28,10 @@ RUN (curl -sL https://golang.org/dl/go1.17.1.linux-amd64.tar.gz | tar xzC /usr/l
 # Install Rust
 RUN su vscode -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" && \
     apt install -y -q libssl-dev gnuplot
+
+# Install ctags
+RUN apt install -y -q autoconf && \
+    git clone https://github.com/universal-ctags/ctags.git && \
+    cd ctags && \
+    ./autogen.sh && ./configure && \
+    make && make install
