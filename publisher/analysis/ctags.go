@@ -5,7 +5,9 @@ import (
 )
 
 func ConstructCtagsIndex(a Archive) []byte {
-	out, err := exec.Command("ctags", "-f", "-", "--recurse", "--links=no", "--excmd=number", a.Dir).Output()
+	cmd := exec.Command("ctags", "-f", "-", "--recurse", "--links=no", "--excmd=number")
+	cmd.Dir = a.Dir // paths are relative to this directory
+	out, err := cmd.Output()
 	if err != nil {
 		panic(err)
 	}
