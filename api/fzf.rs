@@ -4,7 +4,7 @@ use std::env;
 use std::error::Error;
 use vercel_lambda::{error::VercelError, lambda, Request, Response};
 
-const DISTROS: &[&str] = &["hirsute"];
+const DISTROS: &[&str] = &["hirsute", "impish"];
 const MAX_RESULTS: usize = 100;
 const META_BASE: &str = "https://meta.src.codes/";
 

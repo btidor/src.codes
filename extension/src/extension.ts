@@ -4,7 +4,7 @@ import SourceCodesFilesystem from './filesystem';
 import SourceCodesFileSearchProvider from './filesearch';
 
 const FS_SCHEME = 'srccodes';
-const DISTRIBUTION = 'hirsute';
+const DISTRIBUTION = 'impish';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.warn("Hello from srccodes!");
