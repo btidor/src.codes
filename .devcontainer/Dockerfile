@@ -18,11 +18,11 @@ RUN apt install -y -q build-essential g++ libx11-dev libxkbfile-dev \
 RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
     wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
     dpkg --install pscale_0.72.0_linux_amd64.deb && \
-    apt install -y -q linux-tools-$(uname -r) google-perftools \
+    apt install -y -q linux-tools-generic google-perftools \
         libgoogle-perftools-dev llvm
 
 # Install Go
-RUN (curl -sL https://golang.org/dl/go1.17.1.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://golang.org/dl/go1.17.2.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust
