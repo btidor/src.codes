@@ -28,7 +28,7 @@ export default class SourceCodesFileSearchProvider implements vscode.FileSearchP
                         break;
                     }
                     let parts = line.split(" ");
-                    result.push(vscode.Uri.parse("/" + this.distribution + "/" + parts[1]));
+                    result.push(vscode.Uri.parse("srccodes:/" + this.distribution + "/" + parts[1]));
                 }
                 return result;
             });
