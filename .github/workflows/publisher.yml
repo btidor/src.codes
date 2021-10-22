@@ -22,5 +22,6 @@ jobs:
           B2_LS_KEY: ${{ secrets.B2_LS_KEY }}
           B2_CAT_KEY: ${{ secrets.B2_CAT_KEY }}
           B2_META_KEY: ${{ secrets.B2_META_KEY }}
+          B2_CTAGS_KEY: ${{ secrets.B2_CTAGS_KEY }}
 
 concurrency: publisher-mutex
