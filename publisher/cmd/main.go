@@ -63,7 +63,7 @@ func main() {
 
 	// Connect to Backblaze B2. Requires the env vars listed below to contain a
 	// "keyId:applicationKey:bucketName" tuple.
-	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", downloadThreads)
+	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", "B2_CTAGS_KEY", downloadThreads)
 	if err != nil {
 		panic(err)
 	}
@@ -157,7 +157,6 @@ func processDistro(distro publisher.Distro) {
 		if found && ex.Version == pkg.Version && ex.Epoch >= publisher.Epoch && !reindexPkgs {
 			// Package version has been processed on a previous run
 			pkgvers = append(pkgvers, ex)
-			fmt.Printf("[%s] Skip: % 5d / % 5d\n", distro.Name, count, len(packages))
 		} else {
 			// Package version is new, must be processed
 			jobs <- pkg
@@ -185,6 +184,9 @@ func processDistro(distro publisher.Distro) {
 	fmt.Printf("[%s] Preparing package list\n", distro.Name)
 	pkgvers = db.ListDistroContents(distro.Name)
 	up.UploadPackageList(distro.Name, pkgvers)
+
+	fmt.Printf("[%s] Compiling consolidated ctags index\n", distro.Name)
+	up.ConsolidateCtagsIndex(distro.Name, pkgvers)
 
 	// TODO: make this faster!
 	fmt.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)

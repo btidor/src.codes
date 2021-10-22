@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -11,6 +12,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -27,17 +30,20 @@ const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991
 
 var lsBase = internal.URLMustParse("https://ls.src.codes")
 
+var nonalphanum = regexp.MustCompile(`[^A-Za-z0-9]`)
+
 type Uploader struct {
 	ctx context.Context
 
-	ls   *b2.Bucket
-	cat  *b2.Bucket
-	meta *b2.Bucket
+	ls    *b2.Bucket
+	cat   *b2.Bucket
+	meta  *b2.Bucket
+	ctags *b2.Bucket
 
 	downloadThreads int
 }
 
-func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader, error) {
+func NewUploader(lsvar, catvar, metavar, ctagsvar string, downloadThreads int) (*Uploader, error) {
 	var ctx = context.Background()
 
 	ls, err := connect(ctx, lsvar)
@@ -52,9 +58,13 @@ func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader,
 	if err != nil {
 		return nil, err
 	}
+	ctags, err := connect(ctx, ctagsvar)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Uploader{
-		ctx, ls, cat, meta, downloadThreads,
+		ctx, ls, cat, meta, ctags, downloadThreads,
 	}, nil
 }
 
@@ -231,6 +241,120 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 	if err = out.Close(); err != nil {
 		panic(err)
 	}
+}
+
+func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.PackageVersion) {
+	var m = make(map[string]map[string]bool)
+
+	var wg sync.WaitGroup
+	jobs := make(chan database.PackageVersion)
+	results := make(chan string, 16)
+	for w := 0; w < up.downloadThreads; w++ {
+		wg.Add(1)
+		go func(w int, jobs <-chan database.PackageVersion, wg *sync.WaitGroup) {
+			defer wg.Done()
+			for pv := range jobs {
+				filename := fmt.Sprintf(
+					"%s_%s:%d.tags.gz", pv.Name, pv.Version, pv.Epoch,
+				)
+				u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
+				// See comment in ConsolidateFzfIndex, above
+				u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
+
+				fmt.Printf("Downloading %s\n", u.String())
+				raw := internal.DownloadFile(u)
+				dec, err := gzip.NewReader(raw)
+				if err != nil {
+					panic(err)
+				}
+				scanner := bufio.NewScanner(dec)
+				for scanner.Scan() {
+					line := scanner.Text()
+					// insert package name into path
+					line = strings.Replace(line, "\t", "\t"+pv.Name+"/", 1)
+					results <- line
+				}
+				fmt.Printf("  done %s\n", u.String())
+			}
+		}(w, jobs, &wg)
+	}
+
+	var wg2 sync.WaitGroup
+	wg2.Add(1)
+	go func() {
+		defer wg2.Done()
+		for line := range results {
+			shard := strings.ToLower(line[:2])
+			if len(shard) < 2 {
+				continue
+			}
+			shard = nonalphanum.ReplaceAllString(shard, "_")
+			if _, ok := m[shard]; !ok {
+				m[shard] = make(map[string]bool)
+			}
+			m[shard][line] = true
+		}
+	}()
+
+	for _, pv := range pkgvers {
+		jobs <- pv
+	}
+
+	close(jobs)
+	wg.Wait()
+	close(results)
+	wg2.Wait()
+
+	jobs2 := make(chan string)
+	for w := 0; w < up.downloadThreads; w++ {
+		wg.Add(1)
+		go func(w int, jobs2 <-chan string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			for shard := range jobs2 {
+				var lines []string
+				for line := range m[shard] {
+					lines = append(lines, line)
+				}
+				m[shard] = nil // for garbage collection
+				sort.Strings(lines)
+
+				var in bytes.Buffer
+				zw := gzip.NewWriter(&in)
+
+				for _, s := range lines {
+					zw.Write([]byte(s))
+					zw.Write([]byte("\n"))
+				}
+
+				if err := zw.Close(); err != nil {
+					panic(err)
+				}
+
+				remote := path.Join(distro, shard)
+				obj := up.ctags.Object(remote)
+				opt := b2.WithAttrsOption(&b2.Attrs{
+					ContentType: "text/plain",
+					Info:        map[string]string{"b2-content-encoding": "gzip"},
+				})
+				w := obj.NewWriter(up.ctx, opt)
+				if _, err := io.Copy(w, &in); err != nil {
+					w.Close()
+					panic(err)
+				}
+				if err := w.Close(); err != nil {
+					panic(err)
+				}
+				fmt.Println("  " + remote)
+			}
+		}(w, jobs2, &wg)
+	}
+
+	for shard := range m {
+		jobs2 <- shard
+	}
+
+	close(jobs2)
+	wg.Wait()
 }
 
 func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageVersion) {
