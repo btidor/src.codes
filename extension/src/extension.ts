@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import SourceCodesFilesystem from './filesystem';
 import SourceCodesFileSearchProvider from './filesearch';
+import SourceCodesDefinitionProvider from './definition';
 
 const FS_SCHEME = 'srccodes';
 const DISTRIBUTION = 'impish';
@@ -19,6 +20,12 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.registerFileSearchProvider(
 			FS_SCHEME, new SourceCodesFileSearchProvider(DISTRIBUTION),
 		),
+	);
+
+	context.subscriptions.push(
+		vscode.languages.registerDefinitionProvider(
+			{ scheme: FS_SCHEME }, new SourceCodesDefinitionProvider(DISTRIBUTION),
+		)
 	);
 
 	context.subscriptions.push(
