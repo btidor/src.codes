@@ -35,15 +35,14 @@ var nonalphanum = regexp.MustCompile(`[^A-Za-z0-9]`)
 type Uploader struct {
 	ctx context.Context
 
-	ls    *b2.Bucket
-	cat   *b2.Bucket
-	meta  *b2.Bucket
-	ctags *b2.Bucket
+	ls   *b2.Bucket
+	cat  *b2.Bucket
+	meta *b2.Bucket
 
 	downloadThreads int
 }
 
-func NewUploader(lsvar, catvar, metavar, ctagsvar string, downloadThreads int) (*Uploader, error) {
+func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader, error) {
 	var ctx = context.Background()
 
 	ls, err := connect(ctx, lsvar)
@@ -58,13 +57,9 @@ func NewUploader(lsvar, catvar, metavar, ctagsvar string, downloadThreads int) (
 	if err != nil {
 		return nil, err
 	}
-	ctags, err := connect(ctx, ctagsvar)
-	if err != nil {
-		return nil, err
-	}
 
 	return &Uploader{
-		ctx, ls, cat, meta, ctags, downloadThreads,
+		ctx, ls, cat, meta, downloadThreads,
 	}, nil
 }
 
@@ -244,7 +239,12 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 }
 
 func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.PackageVersion) {
-	var m = make(map[string]map[string]bool)
+	var m = make(map[string]map[int]bool)
+
+	var pvLookup = make(map[string]int)
+	for i, pv := range pkgvers {
+		pvLookup[pv.Name] = i
+	}
 
 	var wg sync.WaitGroup
 	jobs := make(chan database.PackageVersion)
@@ -271,8 +271,8 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 				for scanner.Scan() {
 					line := scanner.Text()
 					// insert package name into path
-					line = strings.Replace(line, "\t", "\t"+pv.Name+"/", 1)
-					results <- line
+					parts := strings.Split(line, "\t")
+					results <- pv.Name + "," + parts[0]
 				}
 				fmt.Printf("  done %s\n", u.String())
 			}
@@ -284,15 +284,17 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 	go func() {
 		defer wg2.Done()
 		for line := range results {
-			shard := strings.ToLower(line[:2])
-			if len(shard) < 2 {
-				continue
+			parts := strings.SplitN(line, ",", 2)
+			pkg := parts[0]
+			tag := parts[1]
+			if _, ok := m[tag]; !ok {
+				m[tag] = make(map[int]bool)
 			}
-			shard = nonalphanum.ReplaceAllString(shard, "_")
-			if _, ok := m[shard]; !ok {
-				m[shard] = make(map[string]bool)
+			if pi, ok := pvLookup[pkg]; !ok {
+				panic("Unknown package: " + pkg)
+			} else {
+				m[tag][pi] = true
 			}
-			m[shard][line] = true
 		}
 	}()
 
@@ -305,56 +307,58 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 	close(results)
 	wg2.Wait()
 
-	jobs2 := make(chan string)
-	for w := 0; w < up.downloadThreads; w++ {
-		wg.Add(1)
-		go func(w int, jobs2 <-chan string, wg *sync.WaitGroup) {
-			defer wg.Done()
-			for shard := range jobs2 {
-				var lines []string
-				for line := range m[shard] {
-					lines = append(lines, line)
-				}
-				m[shard] = nil // for garbage collection
-				sort.Strings(lines)
+	var n []string
+	for tag := range m {
+		n = append(n, tag)
+	}
+	sort.Strings(n)
 
-				var in bytes.Buffer
-				zw := gzip.NewWriter(&in)
-
-				for _, s := range lines {
-					zw.Write([]byte(s))
-					zw.Write([]byte("\n"))
-				}
-
-				if err := zw.Close(); err != nil {
-					panic(err)
-				}
-
-				remote := path.Join(distro, shard)
-				obj := up.ctags.Object(remote)
-				opt := b2.WithAttrsOption(&b2.Attrs{
-					ContentType: "text/plain",
-					Info:        map[string]string{"b2-content-encoding": "gzip"},
-				})
-				w := obj.NewWriter(up.ctx, opt)
-				if _, err := io.Copy(w, &in); err != nil {
-					w.Close()
-					panic(err)
-				}
-				if err := w.Close(); err != nil {
-					panic(err)
-				}
-				fmt.Println("  " + remote)
+	var consolidated = new(bytes.Buffer)
+	enc := msgpack.NewEncoder(consolidated)
+	if err := enc.EncodeArrayLen(len(pvLookup)); err != nil {
+		panic(err)
+	}
+	for pn, pi := range pvLookup {
+		if err := enc.EncodeString(pn); err != nil {
+			panic(err)
+		}
+		if err := enc.EncodeUint16(uint16(pi)); err != nil {
+			panic(err)
+		}
+	}
+	if err := enc.EncodeArrayLen(len(n)); err != nil {
+		panic(err)
+	}
+	for _, tag := range n {
+		if err := enc.EncodeString(tag); err != nil {
+			panic(err)
+		}
+		var p []int
+		for pi := range m[tag] {
+			p = append(p, int(pi))
+		}
+		sort.Ints(p)
+		if err := enc.EncodeArrayLen(len(p)); err != nil {
+			panic(err)
+		}
+		for _, pi := range p {
+			if err := enc.EncodeUint16(uint16(pi)); err != nil {
+				panic(err)
 			}
-		}(w, jobs2, &wg)
+		}
 	}
 
-	for shard := range m {
-		jobs2 <- shard
-	}
+	remote := path.Join(distro, "tags.fzf")
 
-	close(jobs2)
-	wg.Wait()
+	obj := up.meta.Object(remote)
+	out := obj.NewWriter(up.ctx)
+	if _, err := io.Copy(out, consolidated); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err := out.Close(); err != nil {
+		panic(err)
+	}
 }
 
 func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageVersion) {

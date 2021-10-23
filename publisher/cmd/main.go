@@ -63,7 +63,7 @@ func main() {
 
 	// Connect to Backblaze B2. Requires the env vars listed below to contain a
 	// "keyId:applicationKey:bucketName" tuple.
-	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", "B2_CTAGS_KEY", downloadThreads)
+	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", downloadThreads)
 	if err != nil {
 		panic(err)
 	}
