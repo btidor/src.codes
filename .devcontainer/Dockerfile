@@ -30,8 +30,4 @@ RUN su vscode -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     apt install -y -q libssl-dev gnuplot
 
 # Install ctags
-RUN apt install -y -q autoconf && \
-    git clone https://github.com/universal-ctags/ctags.git && \
-    cd ctags && \
-    ./autogen.sh && ./configure && \
-    make && make install
+RUN apt install -y -q universal-ctags
