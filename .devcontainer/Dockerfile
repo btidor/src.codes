@@ -22,7 +22,7 @@ RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
         libgoogle-perftools-dev llvm
 
 # Install Go
-RUN (curl -sL https://golang.org/dl/go1.17.2.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust
