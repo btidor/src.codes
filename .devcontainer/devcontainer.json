@@ -4,7 +4,6 @@
 		"dockerfile": "Dockerfile"
 	},
 	"remoteUser": "vscode",
-	"postCreateCommand": "vscode/build",
 	"extensions": [
 		"golang.go",
 		"bungcip.better-toml",
