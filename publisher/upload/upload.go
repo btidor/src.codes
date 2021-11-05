@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
@@ -309,7 +310,9 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 
 	var n []string
 	for tag := range m {
-		n = append(n, tag)
+		if utf8.ValidString(tag) {
+			n = append(n, tag)
+		}
 	}
 	sort.Strings(n)
 
