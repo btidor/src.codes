@@ -154,7 +154,7 @@ impl Matcher<'_> {
 
     /// Advances the matcher with the given path component and returns its
     /// score.
-    fn score(&mut self, comp: &PathComponent) -> u32 {
+    pub fn score(&mut self, comp: &PathComponent) -> u32 {
         self.advance(comp);
         return self.states.last().unwrap().score;
     }

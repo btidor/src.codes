@@ -1,7 +1,8 @@
 use fzf::Directory;
 use fzf::Matcher;
+use fzf::PathServer;
 use fzf::Query;
-use fzf::Server;
+use fzf::TagServer;
 use reqwest::Url;
 use rouille::Response;
 use std::collections::BinaryHeap;
@@ -13,22 +14,43 @@ const NUM_ITERATIONS: usize = 50;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() == 1 {
-        serve();
-    } else if args[1] == "--benchmark" {
+    if args.len() == 3 && args[1] == "--serve" && args[2] == "paths" {
+        serve_paths();
+    } else if args.len() == 3 && args[1] == "--serve" && args[2] == "tags" {
+        serve_tags();
+    } else if args.len() == 2 && args[1] == "--benchmark" {
         benchmark();
     } else {
-        println!("usage: {} [--benchmark]", args[0])
+        println!(
+            "usage: {} {{--serve {{paths | tags}} | --benchmark}}",
+            args[0]
+        );
     }
 }
 
-fn serve() {
-    let mut server = Server::new("dev".to_string(), 100);
+fn serve_paths() {
+    let mut server = PathServer::new("dev".to_string(), 100);
 
     let mut file = File::open("paths.fzf").unwrap();
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
     server.load("impish".to_string(), &buf);
+
+    println!("Listening on 127.0.0.1:7070");
+    rouille::start_server("127.0.0.1:7070", move |request| {
+        let x = "https://127.0.0.1:7070".to_string() + &request.raw_url();
+        let url = Url::parse(&x).unwrap();
+        let (status, body) = server.handle(&url);
+
+        Response::text(body).with_status_code(status.as_u16())
+    });
+}
+
+fn serve_tags() {
+    let mut file = File::open("tags.fzf").unwrap();
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf).unwrap();
+    let server = TagServer::new("dev".to_string(), "impish".to_string(), buf);
 
     println!("Listening on 127.0.0.1:7070");
     rouille::start_server("127.0.0.1:7070", move |request| {

@@ -30,7 +30,7 @@
       "has": [
         {
           "type": "host",
-          "value": "(fzf.src.codes|fzf-.*)"
+          "value": "(fzf.src.codes|fzf-.*|ctags.src.codes|ctags-.*)"
         }
       ]
     }
@@ -53,6 +53,26 @@
         {
           "type": "host",
           "value": "(fzf.src.codes|fzf-.*)"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "destination": "/api/ctags",
+      "has": [
+        {
+          "type": "host",
+          "value": "(ctags.src.codes|ctags-.*)"
+        }
+      ]
+    },
+    {
+      "source": "/:path*",
+      "destination": "/api/ctags",
+      "has": [
+        {
+          "type": "host",
+          "value": "(ctags.src.codes|ctags-.*)"
         }
       ]
     }

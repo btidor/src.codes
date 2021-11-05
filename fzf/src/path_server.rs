@@ -7,16 +7,16 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::time::Instant;
 
-pub struct Server {
+pub struct PathServer {
     commit: String,
     max_results: usize,
 
     index: HashMap<String, Vec<Directory>>,
 }
 
-impl Server {
-    pub fn new<'a>(commit: String, max_results: usize) -> Server {
-        Server {
+impl PathServer {
+    pub fn new<'a>(commit: String, max_results: usize) -> PathServer {
+        PathServer {
             commit,
             max_results,
             index: HashMap::new(),

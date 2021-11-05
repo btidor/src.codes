@@ -1,4 +1,4 @@
-use fzf::Server;
+use fzf::PathServer;
 use reqwest::Url;
 use std::env;
 use std::error::Error;
@@ -12,7 +12,7 @@ const META_BASE: &str = "https://meta.src.codes/";
 // Start the runtime with the handler
 fn main() -> Result<(), Box<dyn Error>> {
 	let commit = env::var("VERCEL_GIT_COMMIT_SHA").unwrap()[..8].to_string();
-	let mut server = Server::new(commit, MAX_RESULTS);
+	let mut server = PathServer::new(commit, MAX_RESULTS);
 
 	for distro in DISTROS {
 		let url = META_BASE.to_string() + distro + "/paths.fzf";
