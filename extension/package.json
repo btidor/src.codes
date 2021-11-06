@@ -25,6 +25,17 @@
         "title": "Join in Workspace",
         "category": "Distro Source Explorer"
       }
+    ],
+    "resourceLabelFormatters": [
+      {
+        "scheme": "srccodes",
+        "formatting": {
+          "label": "${path}",
+          "separator": "/",
+          "stripPathStartingSeparator": true,
+          "tildify": false
+        }
+      }
     ]
   },
   "scripts": {
