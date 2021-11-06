@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -30,8 +29,6 @@ import (
 const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 var lsBase = internal.URLMustParse("https://ls.src.codes")
-
-var nonalphanum = regexp.MustCompile(`[^A-Za-z0-9]`)
 
 type Uploader struct {
 	ctx context.Context
@@ -112,7 +109,10 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	remote := path.Join(a.Pkg.Source.Distro, a.Pkg.Name, filename)
 
 	obj := up.ls.Object(remote)
-	out := obj.NewWriter(up.ctx)
+	opts := b2.WithAttrsOption(&b2.Attrs{
+		ContentType: "application/json",
+	})
+	out := obj.NewWriter(up.ctx, opts)
 	if _, err := out.Write(data); err != nil {
 		out.Close()
 		panic(err)
@@ -224,12 +224,16 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 	}
 
 	filename := fmt.Sprintf(
-		"%s_%s:%d.tags.gz", pkg.Name, pkg.Version, publisher.Epoch,
+		"%s_%s:%d.tags", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
 
 	obj := up.ls.Object(remote)
-	out := obj.NewWriter(up.ctx)
+	opts := b2.WithAttrsOption(&b2.Attrs{
+		ContentType: "text/plain",
+		Info:        map[string]string{"b2-content-encoding": "gzip"},
+	})
+	out := obj.NewWriter(up.ctx, opts)
 	if _, err := io.Copy(out, &in); err != nil {
 		out.Close()
 		panic(err)
