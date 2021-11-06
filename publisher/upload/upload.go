@@ -260,7 +260,7 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 			defer wg.Done()
 			for pv := range jobs {
 				filename := fmt.Sprintf(
-					"%s_%s:%d.tags.gz", pv.Name, pv.Version, pv.Epoch,
+					"%s_%s:%d.tags", pv.Name, pv.Version, pv.Epoch,
 				)
 				u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
 				// See comment in ConsolidateFzfIndex, above
@@ -268,11 +268,7 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 
 				fmt.Printf("Downloading %s\n", u.String())
 				raw := internal.DownloadFile(u)
-				dec, err := gzip.NewReader(raw)
-				if err != nil {
-					panic(err)
-				}
-				scanner := bufio.NewScanner(dec)
+				scanner := bufio.NewScanner(raw)
 				for scanner.Scan() {
 					line := scanner.Text()
 					// insert package name into path

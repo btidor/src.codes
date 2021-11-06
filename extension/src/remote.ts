@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
-import { gunzip } from 'zlib';
 
 import { File, Directory, SymbolicLink } from './inode';
 
@@ -88,17 +87,13 @@ export default class RemoteCache {
                     throw vscode.FileSystemError.FileNotFound();
                 }
 
-                let filename = packageName + "_" + entry.version + ":" + entry.epoch + ".tags.gz";
+                let filename = packageName + "_" + entry.version + ":" + entry.epoch + ".tags";
                 let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, packageName, filename);
                 return axios
-                    .get(url.toString(), { responseType: 'arraybuffer', decompress: true })
+                    .get(url.toString(), { responseType: 'text' })
                     .then(res => {
-                        return new Promise(resolve => {
-                            gunzip(res.data, (err, data) => {
-                                this.tagCache[packageName] ||= data.toString();
-                                resolve(this.tagCache[packageName]!);
-                            });
-                        }) as Thenable<string>;
+                        this.tagCache[packageName] ||= res.data;
+                        return this.tagCache[packageName]!;
                     })
                     .catch(err => {
                         throw vscode.FileSystemError.Unavailable(err);
