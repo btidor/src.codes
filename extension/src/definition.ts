@@ -1,13 +1,18 @@
 import axios from 'axios';
 import * as vscode from 'vscode';
 
+import RemoteCache from './remote';
+
+const LS_URL = vscode.Uri.parse('https://ls.src.codes/');
 const CTAGS_URL = vscode.Uri.parse('https://ctags.src.codes/');
 
 export default class SourceCodesDefinitionProvider implements vscode.DefinitionProvider {
-    private distribution: string;
+    private distribution: String;
+    private remoteCache: RemoteCache;
 
     constructor(distribution: string) {
         this.distribution = distribution;
+        this.remoteCache = new RemoteCache(distribution);
     }
 
     provideDefinition(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
@@ -17,25 +22,20 @@ export default class SourceCodesDefinitionProvider implements vscode.DefinitionP
         }
 
         let word = document.getText(wordRange);
-        let slug = word.substring(0, 2).replace(/[^A-Za-z0-9]/, '_').toLowerCase();
 
-        let url = vscode.Uri.joinPath(CTAGS_URL, this.distribution, slug).toString();
-        console.warn('Requesting URL', url);
-        return axios
-            .get(url, { responseType: 'text' })
-            .then(res => {
-                let result: vscode.Location[] = [];
-                for (let line of res.data.split("\n")) {
-                    let parts = line.split("\t", 3);
-                    if (parts[0] == word) {
-                        let subparts = parts[2].split(/(;"|\t)/);
-                        let uri = vscode.Uri.parse("srccodes:/" + this.distribution + "/" + parts[1]);
-                        let range = new vscode.Position(Number(subparts[0]) - 1, 0);
-                        result.push(new vscode.Location(uri, range));
-                    }
+        let pkg = document.uri.path.split('/')[2]; // TODO: validation
+        return this.remoteCache.getPackageTags(pkg).then(data => {
+            let results: vscode.Location[] = [];
+            for (let line of data.split("\n")) {
+                let parts = line.split("\t");
+                if (parts[0] == word) {
+                    let subparts = parts[2].split(/(;"|\t)/);
+                    let uri = vscode.Uri.parse("srccodes:/" + this.distribution + "/" + pkg + "/" + parts[1]);
+                    let range = new vscode.Position(Number(subparts[0]) - 1, 0);
+                    results.push(new vscode.Location(uri, range));
                 }
-                // TODO: filter and prioritize results
-                return result;
-            });
+            }
+            return results;
+        });
     }
 }

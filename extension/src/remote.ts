@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
+import { gunzip } from 'zlib';
 
 import { File, Directory, SymbolicLink } from './inode';
 
@@ -38,6 +39,8 @@ export default class RemoteCache {
     //
     private packageCache: { [key: string]: Directory; } = {};
 
+    private tagCache: { [key: string]: string; } = {};
+
     constructor(distribution: string) {
         this.distribution = distribution;
     }
@@ -66,6 +69,36 @@ export default class RemoteCache {
                         let parsed = this.parseJSONManifest(res.data);
                         this.packageCache[packageName] ||= parsed;
                         return this.packageCache[packageName]!;
+                    })
+                    .catch(err => {
+                        throw vscode.FileSystemError.Unavailable(err);
+                    });
+            });
+    }
+
+    getPackageTags(packageName: string): Thenable<string> {
+        if (this.tagCache[packageName]) {
+            return Promise.resolve(this.tagCache[packageName]);
+        }
+
+        return this.getOrDownloadPackageIndex()
+            .then(idx => {
+                let entry = idx[packageName];
+                if (!entry) {
+                    throw vscode.FileSystemError.FileNotFound();
+                }
+
+                let filename = packageName + "_" + entry.version + ":" + entry.epoch + ".tags.gz";
+                let url = vscode.Uri.joinPath(API_URLS.ls, this.distribution, packageName, filename);
+                return axios
+                    .get(url.toString(), { responseType: 'arraybuffer', decompress: true })
+                    .then(res => {
+                        return new Promise(resolve => {
+                            gunzip(res.data, (err, data) => {
+                                this.tagCache[packageName] ||= data.toString();
+                                resolve(this.tagCache[packageName]!);
+                            });
+                        }) as Thenable<string>;
                     })
                     .catch(err => {
                         throw vscode.FileSystemError.Unavailable(err);
