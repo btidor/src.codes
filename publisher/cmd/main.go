@@ -103,12 +103,18 @@ func main() {
 	fmt.Println()
 
 	// Run!
+	var errored = false
 	for _, distro := range config {
-		processDistro(distro)
+		if processDistro(distro) {
+			errored = true
+		}
+	}
+	if errored {
+		os.Exit(1)
 	}
 }
 
-func processDistro(distro publisher.Distro) {
+func processDistro(distro publisher.Distro) (errored bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			// If we fail when processing one distro, log the error and
@@ -118,6 +124,7 @@ func processDistro(distro publisher.Distro) {
 			fmt.Println()
 			fmt.Println(string(debug.Stack()))
 			fmt.Println("*****************")
+			errored = true
 		}
 	}()
 
@@ -144,7 +151,11 @@ func processDistro(distro publisher.Distro) {
 		go func(w int, jobs <-chan apt.Package, wg *sync.WaitGroup) {
 			defer wg.Done()
 			for pkg := range jobs {
-				results <- processPackage(pkg)
+				if pv, suberrored := processPackage(pkg); suberrored {
+					errored = true
+				} else {
+					results <- pv
+				}
 			}
 		}(w, jobs, &wg)
 	}
@@ -193,9 +204,10 @@ func processDistro(distro publisher.Distro) {
 	up.ConsolidateFzfIndex(distro.Name, pkgvers)
 
 	fmt.Printf("[%s] Done!\n", distro.Name)
+	return
 }
 
-func processPackage(pkg apt.Package) database.PackageVersion {
+func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			// If we fail when processing one package, log the error and
@@ -205,6 +217,7 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 			fmt.Println()
 			fmt.Println(string(debug.Stack()))
 			fmt.Println("*****************")
+			errored = true
 		}
 	}()
 
@@ -266,5 +279,5 @@ func processPackage(pkg apt.Package) database.PackageVersion {
 	var pv = db.RecordPackageVersion(archive)
 
 	fmt.Printf("[%s] Done!\n", pkg.Slug())
-	return pv
+	return pv, false
 }
