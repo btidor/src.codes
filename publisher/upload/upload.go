@@ -102,6 +102,17 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	if err != nil {
 		panic(err)
 	}
+	var in bytes.Buffer
+	zw := gzip.NewWriter(&in)
+
+	_, err = zw.Write(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
 
 	filename := fmt.Sprintf(
 		"%s_%s:%d.json", a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
@@ -111,9 +122,10 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	obj := up.ls.Object(remote)
 	opts := b2.WithAttrsOption(&b2.Attrs{
 		ContentType: "application/json",
+		Info:        map[string]string{"b2-content-encoding": "gzip"},
 	})
 	out := obj.NewWriter(up.ctx, opts)
-	if _, err := out.Write(data); err != nil {
+	if _, err := io.Copy(out, &in); err != nil {
 		out.Close()
 		panic(err)
 	}
