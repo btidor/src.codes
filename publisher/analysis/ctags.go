@@ -1,7 +1,10 @@
 package analysis
 
 import (
+	"bufio"
+	"bytes"
 	"os/exec"
+	"strings"
 )
 
 func ConstructCtagsIndex(a Archive) []byte {
@@ -17,4 +20,17 @@ func ConstructCtagsIndex(a Archive) []byte {
 		panic(err)
 	}
 	return out
+}
+
+func parseCtags(ctags []byte) map[string][]string {
+	var result = make(map[string][]string)
+
+	rd := bytes.NewReader(ctags)
+	sc := bufio.NewScanner(rd)
+	for sc.Scan() {
+		parts := strings.SplitN(sc.Text(), "\t", 2)
+		tag := parts[0]
+		result[tag] = append(result[tag], parts[1])
+	}
+	return result
 }

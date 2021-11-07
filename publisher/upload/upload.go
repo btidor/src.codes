@@ -255,6 +255,39 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 	}
 }
 
+func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
+	var in bytes.Buffer
+	zw := gzip.NewWriter(&in)
+
+	_, err := zw.Write(symbols)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
+
+	filename := fmt.Sprintf(
+		"%s_%s:%d.symbols", pkg.Name, pkg.Version, publisher.Epoch,
+	)
+	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
+
+	obj := up.ls.Object(remote)
+	opts := b2.WithAttrsOption(&b2.Attrs{
+		ContentType: "text/plain",
+		Info:        map[string]string{"b2-content-encoding": "gzip"},
+	})
+	out := obj.NewWriter(up.ctx, opts)
+	if _, err := io.Copy(out, &in); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err = out.Close(); err != nil {
+		panic(err)
+	}
+}
+
 func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.PackageVersion) {
 	var m = make(map[string]map[int]bool)
 

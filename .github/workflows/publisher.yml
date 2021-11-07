@@ -15,7 +15,7 @@ jobs:
           go-version: 1.17
 
       - name: Install Dependencies
-        run: sudo apt install -y universal-ctags
+        run: sudo apt install -y binutils universal-ctags
 
       - name: Run publisher
         run: go run -v ./cmd
