@@ -1,7 +1,6 @@
 package upload
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -12,10 +11,8 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"sort"
 	"strings"
 	"sync"
-	"unicode/utf8"
 
 	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
@@ -288,64 +285,54 @@ func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
 	}
 }
 
-func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.PackageVersion) {
-	var m = make(map[string]map[int]bool)
-
+func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.PackageVersion) {
 	var pvLookup = make(map[string]int)
 	for i, pv := range pkgvers {
 		pvLookup[pv.Name] = i
 	}
 
 	var wg sync.WaitGroup
-	jobs := make(chan database.PackageVersion)
-	results := make(chan string, 16)
+	jobs := make(chan *url.URL)
+	results := make(chan *bytes.Buffer, 16)
 	for w := 0; w < up.downloadThreads; w++ {
 		wg.Add(1)
-		go func(w int, jobs <-chan database.PackageVersion, wg *sync.WaitGroup) {
+		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
 			defer wg.Done()
-			for pv := range jobs {
-				filename := fmt.Sprintf(
-					"%s_%s:%d.tags", pv.Name, pv.Version, pv.Epoch,
-				)
-				u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
-				// See comment in ConsolidateFzfIndex, above
-				u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
-
+			for u := range jobs {
 				fmt.Printf("Downloading %s\n", u.String())
 				raw := internal.DownloadFile(u)
-				scanner := bufio.NewScanner(raw)
-				for scanner.Scan() {
-					line := scanner.Text()
-					// insert package name into path
-					parts := strings.Split(line, "\t")
-					results <- pv.Name + "," + parts[0]
-				}
+				results <- raw
 				fmt.Printf("  done %s\n", u.String())
 			}
 		}(w, jobs, &wg)
 	}
 
+	var in bytes.Buffer
+	zw := gzip.NewWriter(&in)
+
 	var wg2 sync.WaitGroup
 	wg2.Add(1)
 	go func() {
 		defer wg2.Done()
-		for line := range results {
-			parts := strings.SplitN(line, ",", 2)
-			pkg := parts[0]
-			tag := parts[1]
-			if _, ok := m[tag]; !ok {
-				m[tag] = make(map[int]bool)
-			}
-			if pi, ok := pvLookup[pkg]; !ok {
-				panic("Unknown package: " + pkg)
-			} else {
-				m[tag][pi] = true
+		for symbols := range results {
+			_, err := io.Copy(zw, symbols)
+			if err != nil {
+				panic(err)
 			}
 		}
 	}()
 
 	for _, pv := range pkgvers {
-		jobs <- pv
+		filename := fmt.Sprintf(
+			"%s_%s:%d.symbols", pv.Name, pv.Version, pv.Epoch,
+		)
+		u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
+		// Backblaze incorrectly treats a "+" in the path component as a space,
+		// so we need to escape this. Debugging FYI: Url.String() will ignore
+		// RawPath unless it's a valid encoding of Path. See:
+		// https://github.com/golang/go/issues/17340
+		u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
+		jobs <- u
 	}
 
 	close(jobs)
@@ -353,54 +340,18 @@ func (up *Uploader) ConsolidateCtagsIndex(distro string, pkgvers []database.Pack
 	close(results)
 	wg2.Wait()
 
-	var n []string
-	for tag := range m {
-		if utf8.ValidString(tag) {
-			n = append(n, tag)
-		}
-	}
-	sort.Strings(n)
-
-	var consolidated = new(bytes.Buffer)
-	enc := msgpack.NewEncoder(consolidated)
-	if err := enc.EncodeArrayLen(len(pvLookup)); err != nil {
+	if err := zw.Close(); err != nil {
 		panic(err)
 	}
-	for pn, pi := range pvLookup {
-		if err := enc.EncodeString(pn); err != nil {
-			panic(err)
-		}
-		if err := enc.EncodeUint16(uint16(pi)); err != nil {
-			panic(err)
-		}
-	}
-	if err := enc.EncodeArrayLen(len(n)); err != nil {
-		panic(err)
-	}
-	for _, tag := range n {
-		if err := enc.EncodeString(tag); err != nil {
-			panic(err)
-		}
-		var p []int
-		for pi := range m[tag] {
-			p = append(p, int(pi))
-		}
-		sort.Ints(p)
-		if err := enc.EncodeArrayLen(len(p)); err != nil {
-			panic(err)
-		}
-		for _, pi := range p {
-			if err := enc.EncodeUint16(uint16(pi)); err != nil {
-				panic(err)
-			}
-		}
-	}
 
-	remote := path.Join(distro, "tags.fzf")
-
+	remote := path.Join(distro, "symbols.txt")
 	obj := up.meta.Object(remote)
-	out := obj.NewWriter(up.ctx)
-	if _, err := io.Copy(out, consolidated); err != nil {
+	opts := b2.WithAttrsOption(&b2.Attrs{
+		ContentType: "text/plain",
+		Info:        map[string]string{"b2-content-encoding": "gzip"},
+	})
+	out := obj.NewWriter(up.ctx, opts)
+	if _, err := io.Copy(out, &in); err != nil {
 		out.Close()
 		panic(err)
 	}

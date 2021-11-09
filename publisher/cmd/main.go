@@ -196,12 +196,11 @@ func processDistro(distro publisher.Distro) (errored bool) {
 	pkgvers = db.ListDistroContents(distro.Name)
 	up.UploadPackageList(distro.Name, pkgvers)
 
-	fmt.Printf("[%s] Compiling consolidated ctags index\n", distro.Name)
-	up.ConsolidateCtagsIndex(distro.Name, pkgvers)
-
-	// TODO: make this faster!
 	fmt.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)
 	up.ConsolidateFzfIndex(distro.Name, pkgvers)
+
+	fmt.Printf("[%s] Compiling consolidated symbols index\n", distro.Name)
+	up.ConsolidateSymbolsIndex(distro.Name, pkgvers)
 
 	fmt.Printf("[%s] Done!\n", distro.Name)
 	return
