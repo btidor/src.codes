@@ -35,7 +35,28 @@ export default class SourceCodesDefinitionProvider implements vscode.DefinitionP
                     results.push(new vscode.Location(uri, range));
                 }
             }
-            return results;
+
+            // TODO: run the two requests in parallel
+            return this.remoteCache.getSymbolsIndex().then(idx => {
+                let target = " " + word + "@";
+                let matching = false;
+                let pkg2 = undefined;
+                for (let line of idx.split("\n")) {
+                    if (line.startsWith("### ")) {
+                        pkg2 = line.split(" ")[1];
+                    } else if (matching && line.startsWith(" - ") && pkg2 != pkg) {
+                        let parts = line.substring(3).split(/(;"|\t)/);
+                        let uri = vscode.Uri.parse("srccodes:/" + this.distribution + "/" + pkg2! + "/" + parts[0]);
+                        let range = new vscode.Position(Number(parts[2]) - 1, 0);
+                        results.push(new vscode.Location(uri, range));
+                    } else if (line.startsWith(target)) {
+                        matching = true;
+                    } else {
+                        matching = false;
+                    }
+                }
+                return results;
+            });
         });
     }
 }

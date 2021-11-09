@@ -40,6 +40,8 @@ export default class RemoteCache {
 
     private tagCache: { [key: string]: string; } = {};
 
+    private symbolsIndex?: string;
+
     constructor(distribution: string) {
         this.distribution = distribution;
     }
@@ -98,6 +100,23 @@ export default class RemoteCache {
                     .catch(err => {
                         throw vscode.FileSystemError.Unavailable(err);
                     });
+            });
+    }
+
+    getSymbolsIndex(): Thenable<string> {
+        if (this.symbolsIndex) {
+            return Promise.resolve(this.symbolsIndex);
+        }
+
+        let url = vscode.Uri.joinPath(API_URLS.meta, this.distribution, "symbols.txt");
+        return axios
+            .get(url.toString(), { responseType: 'text' })
+            .then(res => {
+                this.symbolsIndex ||= res.data;
+                return this.symbolsIndex!;
+            })
+            .catch(err => {
+                throw vscode.FileSystemError.Unavailable(err);
             });
     }
 
