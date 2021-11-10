@@ -8,6 +8,7 @@ import PackageClient from './clients/package';
 import FileClient from './clients/file';
 import SymbolsClient from './clients/symbols';
 import FzfClient from './clients/fzf';
+import WorkspaceSymbolProvider from './providers/workspaceSymbol';
 
 export function activate(context: vscode.ExtensionContext) {
 	const config = {
@@ -37,6 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
 		),
 		vscode.languages.registerDefinitionProvider(
 			{ scheme: config.scheme }, new GlobalDefinitionProvider(symbolsClient),
+		),
+		vscode.languages.registerWorkspaceSymbolProvider(
+			new WorkspaceSymbolProvider(packageClient, symbolsClient),
 		),
 		vscode.commands.registerCommand('src-codes-explore', _ => {
 			vscode.commands.executeCommand(
