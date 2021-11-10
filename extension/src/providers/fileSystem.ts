@@ -48,7 +48,7 @@ export default class FileSystemProvider implements vscode.FileSystemProvider {
                     if (node instanceof File) {
                         throw vscode.FileSystemError.FileNotADirectory();
                     } else {
-                        return Object.entries(node.contents).map(x => [x[0], x[1].type]);
+                        return Object.entries(node.contents).map(([name, node]) => [name, node.type]);
                     }
                 });
             } else {
