@@ -1,43 +1,54 @@
 import * as vscode from 'vscode';
 
-import SourceCodesFilesystem from './filesystem';
-import SourceCodesFileSearchProvider from './filesearch';
-import SourceCodesDefinitionProvider from './definition';
-
-const FS_SCHEME = 'srccodes';
-const DISTRIBUTION = 'impish';
+import FileSystemProvider from './providers/fileSystem';
+import FileSearchProvider from './providers/fileSearch';
+import LocalDefinitionProvider from './providers/localDefinition';
+import GlobalDefinitionProvider from './providers/globalDefinition';
+import PackageClient from './clients/package';
+import FileClient from './clients/file';
+import SymbolsClient from './clients/symbols';
+import FzfClient from './clients/fzf';
 
 export function activate(context: vscode.ExtensionContext) {
-	console.warn("Hello from srccodes!");
+	const config = {
+		scheme: 'srccodes',
+		distribution: 'impish',
+
+		meta: vscode.Uri.parse('https://meta.src.codes'),
+		ls: vscode.Uri.parse('https://ls.src.codes'),
+		cat: vscode.Uri.parse('https://cat.src.codes'),
+		fzf: vscode.Uri.parse('https://fzf.src.codes'),
+	};
+
+	const packageClient = new PackageClient(config);
+	const fileClient = new FileClient(config);
+	const fzfClient = new FzfClient(config);
+	const symbolsClient = new SymbolsClient(config);
 
 	context.subscriptions.push(
 		vscode.workspace.registerFileSystemProvider(
-			FS_SCHEME, new SourceCodesFilesystem(DISTRIBUTION), { isCaseSensitive: true, isReadonly: true },
+			config.scheme, new FileSystemProvider(packageClient, fileClient), { isCaseSensitive: true, isReadonly: true },
 		),
-	);
-
-	context.subscriptions.push(
 		vscode.workspace.registerFileSearchProvider(
-			FS_SCHEME, new SourceCodesFileSearchProvider(DISTRIBUTION),
+			config.scheme, new FileSearchProvider(fzfClient),
 		),
-	);
-
-	context.subscriptions.push(
 		vscode.languages.registerDefinitionProvider(
-			{ scheme: FS_SCHEME }, new SourceCodesDefinitionProvider(DISTRIBUTION),
-		)
-	);
-
-	context.subscriptions.push(
+			{ scheme: config.scheme }, new LocalDefinitionProvider(packageClient, symbolsClient),
+		),
+		vscode.languages.registerDefinitionProvider(
+			{ scheme: config.scheme }, new GlobalDefinitionProvider(symbolsClient),
+		),
 		vscode.commands.registerCommand('src-codes-explore', _ => {
 			vscode.commands.executeCommand(
 				'vscode.openFolder', vscode.Uri.from({
-					scheme: FS_SCHEME,
-					path: '/' + DISTRIBUTION,
+					scheme: config.scheme,
+					path: '/' + config.distribution,
 				}),
 			);
 		}),
 	);
+
+	console.warn("Hello from srccodes!");
 }
 
 export function deactivate() { }

@@ -72,8 +72,8 @@ export class Directory implements vscode.FileStat, Node {
     resolveLinks = () => this;
 
     walkPath(path: string[]): Node {
-        var node: Node = this;
-        for (let part of path) {
+        let node: Node = this;
+        for (const part of path) {
             node = node.descend(part);
         }
         return node;
@@ -107,8 +107,8 @@ export class SymbolicLink implements vscode.FileStat, Node {
     }
 
     resolveLinks(): File | Directory {
-        var node: File | Directory = this.parent;
-        for (let part of this.destination.split("/")) {
+        let node: File | Directory = this.parent;
+        for (const part of this.destination.split("/")) {
             if (part === ".") {
                 continue;
             } else if (part === "..") {
@@ -118,7 +118,7 @@ export class SymbolicLink implements vscode.FileStat, Node {
                     throw new Error("Symbolic link backtracks past package root");
                 }
             } else {
-                var tmp: Node = node.descend(part);
+                const tmp: Node = node.descend(part);
                 if (tmp === this) {
                     throw new Error("Symbolic link loop detected");
                 }
