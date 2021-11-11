@@ -3,7 +3,9 @@ import axios from 'axios';
 
 import { Config, constructUri, Package } from '../types/common';
 
-type Symbols = { [tag: string]: vscode.Location[]; };
+type Symbols = { [tag: string]: vscode.SymbolInformation[]; };
+
+const CTAGS_SPLIT = /\t|;"\t/;
 
 export default class SymbolsClient {
     private config: Config;
@@ -26,19 +28,20 @@ export default class SymbolsClient {
             .get(url.toString(), { responseType: 'text' })
             .then(res => {
                 const syms: Symbols = {};
-                let pkg = undefined;
-                let name = undefined;
+                let pkgName = undefined;
+                let symName = undefined;
                 for (const line of res.data.split("\n")) {
                     if (line.startsWith("### ")) {
-                        pkg = line.split(" ")[1];
-                    } else if (line.startsWith(" - ") && pkg && name) {
-                        const parts = line.substring(3).split(/;"|\t/);
-                        const uri = constructUri(this.config, pkg, parts[0]);
-                        const range = new vscode.Position(Number(parts[1]) - 1, 0);
-                        syms[name] ||= [];
-                        syms[name].push(new vscode.Location(uri, range));
+                        pkgName = line.split(" ")[1];
+                    } else if (line.startsWith(" - ") && pkgName && symName) {
+                        const parts = line.substring(3).split(CTAGS_SPLIT);
+                        const info = this.parseCtagsLine(symName, pkgName, parts, true);
+                        if (info) {
+                            syms[info.name] ||= [];
+                            syms[info.name].push(info);
+                        }
                     } else if (line.startsWith(" ")) {
-                        name = line.split(/[ @]/)[1];
+                        symName = line.split(/[ @]/)[1];
                     }
                 }
                 return syms;
@@ -56,13 +59,13 @@ export default class SymbolsClient {
                 .get(url.toString(), { responseType: 'text' })
                 .then(res => {
                     const syms: Symbols = {};
-                    for (const line of res.data.split("\n")) {
-                        const parts = line.split(/;"|\t/);
-                        const name = parts[0];
-                        const uri = constructUri(this.config, pkg.name, parts[1]);
-                        const range = new vscode.Position(Number(parts[2]) - 1, 0);
-                        syms[name] ||= [];
-                        syms[name].push(new vscode.Location(uri, range));
+                    for (const line of res.data.trim().split("\n")) {
+                        const parts = line.split(CTAGS_SPLIT);
+                        const info = this.parseCtagsLine(parts[0], pkg.name, parts.slice(1), false);
+                        if (info) {
+                            syms[info.name] ||= [];
+                            syms[info.name].push(info);
+                        }
                     }
                     return syms;
                 })
@@ -75,5 +78,48 @@ export default class SymbolsClient {
 
     listGlobalSymbols(): Thenable<Symbols> {
         return this.globals;
+    }
+
+    private parseCtagsLine(name: string, pkgName: string, parts: string[], globalOnly: boolean): vscode.SymbolInformation | undefined {
+        if (name.startsWith("(c++)\"")) {
+            name = name.slice(6);
+        }
+        if (parts.indexOf("file:") >= 0 && globalOnly) {
+            return undefined;
+        }
+        const uri = constructUri(this.config, pkgName, parts[0]);
+        const range = new vscode.Position(Number(parts[1]) - 1, 0);
+        return new vscode.SymbolInformation(
+            name,
+            this.parseTagKind(parts[2]) || vscode.SymbolKind.Null,
+            "",
+            new vscode.Location(uri, range),
+        );
+    }
+
+    private parseTagKind(abbr: string): vscode.SymbolKind | undefined {
+        switch (abbr) {
+            case 'c':
+                return vscode.SymbolKind.Class;
+            case 'e':
+                return vscode.SymbolKind.EnumMember;
+            case 'f':
+                return vscode.SymbolKind.Function;
+            case 'F':
+                return vscode.SymbolKind.File;
+            case 'g':
+                return vscode.SymbolKind.Enum;
+            case 'm':
+                return vscode.SymbolKind.Property;
+            case 'p':
+                return vscode.SymbolKind.Interface;
+            case 's':
+                return vscode.SymbolKind.Struct;
+            case 'u':
+                return vscode.SymbolKind.Enum;
+            case 'v':
+                return vscode.SymbolKind.Variable;
+        }
+        return undefined;
     }
 }

@@ -23,14 +23,7 @@ export default class WorkspaceSymbolProvider implements vscode.WorkspaceSymbolPr
             }
             matches.sort(([a, _x], [b, _y]) => a - b);
             return matches.slice(0, 100).flatMap(
-                ([_, symbol]) => syms[symbol].map(
-                    location => new vscode.SymbolInformation(
-                        symbol,
-                        vscode.SymbolKind.Method, // TODO
-                        "",
-                        location,
-                    )
-                )
+                ([_, symbol]) => syms[symbol]
             );
         });
     }

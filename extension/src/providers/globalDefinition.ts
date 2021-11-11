@@ -14,7 +14,7 @@ export default class GlobalDefinitionProvider implements vscode.DefinitionProvid
         if (wordRange) {
             const word = document.getText(wordRange);
             return this.symbolsClient.listGlobalSymbols().then(
-                syms => syms[word]
+                syms => syms[word].map(info => info.location)
             );
         } else {
             throw new Error("Could not find word at given position");
