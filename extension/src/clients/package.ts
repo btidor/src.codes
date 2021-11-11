@@ -27,29 +27,29 @@ export default class PackageClient {
 
     // A listing of all packages in the distribution, with pointers to the
     // individual package manifests.
-    private packages: Thenable<{ [pkgName: string]: Package; }>;
+    private packages: Thenable<Map<string, Package>>;
 
     // A cache of the file system trees for each package, listing all files and
     // directories in the package. Lazy-loaded.
-    private contents: { [pkgName: string]: Thenable<Directory>; };
+    private contents: Map<string, Thenable<Directory>>;
 
     constructor(config: Config) {
         this.config = config;
-        this.contents = {};
+        this.contents = new Map();
 
         // Download package index
         const url = vscode.Uri.joinPath(this.config.meta, this.config.distribution, "packages.json");
         this.packages = axios
             .get(url.toString(), { responseType: 'json' })
             .then(res => {
-                const pkgs: { [pkgName: string]: Package; } = {};
+                const pkgs = new Map();
                 for (const name in res.data) {
                     const values = res.data[name];
-                    pkgs[name] = {
+                    pkgs.set(name, {
                         name,
                         version: values.version,
                         epoch: values.epoch,
-                    };
+                    });
                 }
                 return pkgs;
             })
@@ -59,9 +59,9 @@ export default class PackageClient {
     }
 
     getPackage(pkgName: string): Thenable<Package> {
-        return this.packages.then(p => {
-            if (pkgName in p) {
-                return p[pkgName];
+        return this.packages.then(pkgs => {
+            if (pkgs.has(pkgName)) {
+                return pkgs.get(pkgName)!;
             } else {
                 throw vscode.FileSystemError.FileNotFound();
             }
@@ -87,21 +87,23 @@ export default class PackageClient {
     }
 
     listPackages(): Thenable<Package[]> {
-        return this.packages.then(p => Object.values(p));
+        return this.packages.then(pkgs => Array.from(pkgs.values()));
     };
 
     listPackageContents(pkg: Package): Thenable<Directory> {
-        if (!(pkg.name in this.contents)) {
+        if (!this.contents.has(pkg.name)) {
             const filename = pkg.name + "_" + pkg.version + ":" + pkg.epoch + ".json";
             const url = vscode.Uri.joinPath(this.config.ls, this.config.distribution, pkg.name, filename);
-            this.contents[pkg.name] = axios
-                .get(url.toString(), { responseType: 'json' })
-                .then(res => this.parsePackageManifest(res.data))
-                .catch(err => {
-                    throw vscode.FileSystemError.Unavailable(err);
-                });
+            this.contents.set(pkg.name,
+                axios
+                    .get(url.toString(), { responseType: 'json' })
+                    .then(res => this.parsePackageManifest(res.data))
+                    .catch(err => {
+                        throw vscode.FileSystemError.Unavailable(err);
+                    })
+            );
         }
-        return this.contents[pkg.name];
+        return this.contents.get(pkg.name)!;
     }
 
     private parsePackageManifest(json: any, grandparent?: Directory): Directory {

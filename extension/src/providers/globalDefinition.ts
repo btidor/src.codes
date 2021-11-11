@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import PackageClient from '../clients/package';
 import SymbolsClient from '../clients/symbols';
 
 export default class GlobalDefinitionProvider implements vscode.DefinitionProvider {
@@ -14,7 +13,7 @@ export default class GlobalDefinitionProvider implements vscode.DefinitionProvid
         if (wordRange) {
             const word = document.getText(wordRange);
             return this.symbolsClient.listGlobalSymbols().then(
-                syms => syms[word].map(info => info.location)
+                syms => (syms.get(word) || []).map(info => info.location)
             );
         } else {
             throw new Error("Could not find word at given position");

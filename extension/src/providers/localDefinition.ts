@@ -18,7 +18,7 @@ export default class LocalDefinitionProvider implements vscode.DefinitionProvide
             return this.packageClient.parseUri(document.uri).then(path => {
                 if (path) {
                     return this.symbolsClient.listPackageSymbols(path.pkg).then(
-                        syms => syms[word].map(info => info.location)
+                        syms => (syms.get(word) || []).map(info => info.location)
                     );
                 } else {
                     throw new Error("Tried to provide definition in workspace root?!");

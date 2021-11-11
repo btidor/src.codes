@@ -20,12 +20,11 @@ export default class LocalSymbolProvider implements vscode.WorkspaceSymbolProvid
                 doc => this.packageClient.parseUri(doc.uri).then(path => path!.pkg)
             )
         ).then(pkgs => {
-            console.warn([...new Set(pkgs)]);
             return Promise.all(
                 [...new Set(pkgs)].map(pkg => {
                     return this.symbolsClient.listPackageSymbols(pkg).then(syms => {
                         let matches: [number, string][] = [];
-                        for (const symbol of Object.keys(syms)) {
+                        for (const symbol of syms.keys()) {
                             let score = scoreFuzzy(symbol, query, query.toLowerCase(), true);
                             if (score > 0) {
                                 matches.push([score, symbol]);
@@ -33,7 +32,7 @@ export default class LocalSymbolProvider implements vscode.WorkspaceSymbolProvid
                         }
                         matches.sort(([a, _x], [b, _y]) => a - b);
                         return matches.slice(0, 100).flatMap(
-                            ([_, symbol]) => syms[symbol]
+                            ([_, symbol]) => syms.get(symbol) || []
                         );
                     });
                 })
