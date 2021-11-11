@@ -1,14 +1,11 @@
 import * as vscode from 'vscode';
-import PackageClient from '../clients/package';
 import SymbolsClient from '../clients/symbols';
 import { scoreFuzzy } from '../fuzzyScorer';
 
-export default class WorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
-    private packageClient: PackageClient;
+export default class GlobalSymbolProvider implements vscode.WorkspaceSymbolProvider {
     private symbolsClient: SymbolsClient;
 
-    constructor(packageClient: PackageClient, symbolsClient: SymbolsClient) {
-        this.packageClient = packageClient;
+    constructor(symbolsClient: SymbolsClient) {
         this.symbolsClient = symbolsClient;
     }
 
