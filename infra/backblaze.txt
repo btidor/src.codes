@@ -12,6 +12,5 @@ Bucket Info
  * ls:    {"cache-control":"public, max-age=604800, immutable"}
  * cat:   {"cache-control":"public, max-age=604800, immutable"}
  * meta:  {"cache-control":"public, max-age=300"}
- * ctags: {"cache-control":"public, max-age=300"}
 
 Robots File: see "robots.txt"
