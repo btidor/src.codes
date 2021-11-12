@@ -11,13 +11,15 @@ RUN (curl -sL https://deb.nodesource.com/setup_14.x | bash) && \
 
 # Pre-install VS Code build dependencies (used by vscode/build) so they're
 # cached in a layer.
-RUN apt install -y -q build-essential g++ libx11-dev libxkbfile-dev \
+RUN apt update -q && \
+    apt install -y -q build-essential g++ libx11-dev libxkbfile-dev \
         libsecret-1-dev python-is-python3
 
 # Install development tools
-RUN apt install -y -q silversearcher-ag mysql-client graphviz && \
-    wget https://github.com/planetscale/cli/releases/download/v0.72.0/pscale_0.72.0_linux_amd64.deb && \
-    dpkg --install pscale_0.72.0_linux_amd64.deb && \
+RUN apt update -q && \
+    apt install -y -q silversearcher-ag mysql-client graphviz && \
+    wget https://github.com/planetscale/cli/releases/download/v0.85.0/pscale_0.85.0_linux_amd64.deb && \
+    dpkg --install pscale_0.85.0_linux_amd64.deb && \
     apt install -y -q linux-tools-generic google-perftools \
         libgoogle-perftools-dev llvm
 
@@ -27,7 +29,8 @@ RUN (curl -sL https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | tar xzC /usr/l
 
 # Install Rust
 RUN su vscode -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" && \
+    apt update -q && \
     apt install -y -q libssl-dev gnuplot-nox
 
 # Install ctags
-RUN apt install -y -q universal-ctags
+RUN apt update -q && apt install -y -q universal-ctags
