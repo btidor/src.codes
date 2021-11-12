@@ -16,8 +16,7 @@
 
 declare module 'vscode' {
 
-	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @alexdima - resolvers
+	//#region resolvers: @alexdima
 
 	export interface MessageOptions {
 		/**
@@ -44,12 +43,22 @@ declare module 'vscode' {
 		isTrusted?: boolean;
 	}
 
+	export interface TunnelPrivacy {
+		themeIcon: string;
+		id: string;
+		label: string;
+	}
+
 	export interface TunnelOptions {
 		remoteAddress: { port: number, host: string; };
 		// The desired local port. If this port can't be used, then another will be chosen.
 		localAddressPort?: number;
 		label?: string;
+		/**
+		 * @deprecated Use privacy instead
+		 */
 		public?: boolean;
+		privacy?: string;
 		protocol?: string;
 	}
 
@@ -57,7 +66,11 @@ declare module 'vscode' {
 		remoteAddress: { port: number, host: string; };
 		//The complete local address(ex. localhost:1234)
 		localAddress: { port: number, host: string; } | string;
+		/**
+		 * @deprecated Use privacy instead
+		 */
 		public?: boolean;
+		privacy?: string;
 		// If protocol is not provided it is assumed to be http, regardless of the localAddress.
 		protocol?: string;
 	}
@@ -144,7 +157,14 @@ declare module 'vscode' {
 		 */
 		tunnelFeatures?: {
 			elevation: boolean;
+			/**
+			 * @deprecated Use privacy instead
+			 */
 			public: boolean;
+			/**
+			 * One of the the options must have the ID "private".
+			 */
+			privacyOptions: TunnelPrivacy[];
 		};
 
 		candidatePortSource?: CandidatePortSource;
@@ -162,7 +182,7 @@ declare module 'vscode' {
 		 *
 		 * Defaults to false.
 		 */
-		forceNewSession?: boolean | { detail: string };
+		forceNewSession?: boolean | { detail: string; };
 	}
 
 	export namespace authentication {
@@ -179,7 +199,8 @@ declare module 'vscode' {
 		 * @param options The {@link AuthenticationGetSessionOptions} to use
 		 * @returns A thenable that resolves to an authentication session
 		 */
-		export function getSession(providerId: string, scopes: readonly string[], options: AuthenticationGetSessionOptions & { forceNewSession: true | { detail: string } }): Thenable<AuthenticationSession>;
+		export function getSession(providerId: string, scopes: readonly string[], options: AuthenticationGetSessionOptions & { forceNewSession: true | { detail: string; }; }): Thenable<AuthenticationSession>;
+		export function hasSession(providerId: string, scopes: readonly string[]): Thenable<boolean>;
 	}
 
 	export namespace workspace {
@@ -229,26 +250,26 @@ declare module 'vscode' {
 		export function registerResourceLabelFormatter(formatter: ResourceLabelFormatter): Disposable;
 	}
 
-	//#endregion
+	export namespace env {
 
-	//#region editor insets: https://github.com/microsoft/vscode/issues/85682
+		/**
+		 * The authority part of the current opened `vscode-remote://` URI.
+		 * Defined by extensions, e.g. `ssh-remote+${host}` for remotes using a secure shell.
+		 *
+		 * *Note* that the value is `undefined` when there is no remote extension host but that the
+		 * value is defined in all extension hosts (local and remote) in case a remote extension host
+		 * exists. Use {@link Extension.extensionKind} to know if
+		 * a specific extension runs remote or not.
+		 */
+		export const remoteAuthority: string | undefined;
 
-	export interface WebviewEditorInset {
-		readonly editor: TextEditor;
-		readonly line: number;
-		readonly height: number;
-		readonly webview: Webview;
-		readonly onDidDispose: Event<void>;
-		dispose(): void;
 	}
 
-	export namespace window {
-		export function createWebviewTextEditorInset(editor: TextEditor, line: number, height: number, options?: WebviewOptions): WebviewEditorInset;
-	}
-
 	//#endregion
 
-	//#region read/write in chunks: https://github.com/microsoft/vscode/issues/84515
+
+
+	//#region fsChunks: https://github.com/microsoft/vscode/issues/84515
 
 	export interface FileSystemProvider {
 		open?(resource: Uri, options: { create: boolean; }): number | Thenable<number>;
@@ -259,7 +280,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region TextSearchProvider: https://github.com/microsoft/vscode/issues/59921
+	//#region textSearchProvider: https://github.com/microsoft/vscode/issues/59921
 
 	/**
 	 * The parameters of a query for text search.
@@ -516,7 +537,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region FileSearchProvider: https://github.com/microsoft/vscode/issues/73524
+	//#region fileSearchProvider: https://github.com/microsoft/vscode/issues/73524
 
 	/**
 	 * The parameters of a query for file search.
@@ -682,7 +703,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region diff command: https://github.com/microsoft/vscode/issues/84899
+	//#region diffCommand: https://github.com/microsoft/vscode/issues/84899
 
 	/**
 	 * The contiguous set of modified lines in a diff.
@@ -716,7 +737,7 @@ declare module 'vscode' {
 	//#endregion
 
 	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @roblourens: new debug session option for simple UI 'managedByParent' (see https://github.com/microsoft/vscode/issues/128588)
+	//#region notebookDebugOptions: @roblourens: new debug session option for simple UI 'managedByParent' (see https://github.com/microsoft/vscode/issues/128588)
 
 	/**
 	 * Options for {@link debug.startDebugging starting a debug session}.
@@ -728,7 +749,7 @@ declare module 'vscode' {
 			 * When true, the debug toolbar will not be shown for this session, the window statusbar color will not be changed, and the debug viewlet will not be automatically revealed.
 			 */
 			simple?: boolean;
-		}
+		};
 
 		/**
 		 * When true, a save will not be triggered for open editors when starting a debug session, regardless of the value of the `debug.saveBeforeStart` setting.
@@ -738,29 +759,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @weinand: variables view action contributions
-
-	/**
-	 * A DebugProtocolVariableContainer is an opaque stand-in type for the intersection of the Scope and Variable types defined in the Debug Adapter Protocol.
-	 * See https://microsoft.github.io/debug-adapter-protocol/specification#Types_Scope and https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable.
-	 */
-	export interface DebugProtocolVariableContainer {
-		// Properties: the intersection of DAP's Scope and Variable types.
-	}
-
-	/**
-	 * A DebugProtocolVariable is an opaque stand-in type for the Variable type defined in the Debug Adapter Protocol.
-	 * See https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable.
-	 */
-	export interface DebugProtocolVariable {
-		// Properties: see details [here](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Variable).
-	}
-
-	//#endregion
-
-	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @joaomoreno: SCM validation
+	// #region scmValidation: @joaomoreno
 
 	/**
 	 * Represents the validation type of the Source Control input.
@@ -815,8 +814,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @joaomoreno: SCM selected provider
+	//#region scmSelectedProvider: @joaomoreno
 
 	export interface SourceControl {
 
@@ -833,7 +831,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Terminal data write event https://github.com/microsoft/vscode/issues/78502
+	//#region terminalDataWriteEvent: https://github.com/microsoft/vscode/issues/78502
 
 	export interface TerminalDataWriteEvent {
 		/**
@@ -857,7 +855,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Terminal dimensions property and change event https://github.com/microsoft/vscode/issues/55718
+	//#region terminalDimensions: https://github.com/microsoft/vscode/issues/55718
 
 	/**
 	 * An {@link Event} which fires when a {@link Terminal}'s dimensions change.
@@ -891,46 +889,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Terminal state event https://github.com/microsoft/vscode/issues/127717
-
-	/**
-	 * Represents the state of a {@link Terminal}.
-	 */
-	export interface TerminalState {
-		/**
-		 * Whether the {@link Terminal} has been interacted with. Interaction means that the
-		 * terminal has sent data to the process which depending on the terminal's _mode_. By
-		 * default input is sent when a key is pressed or when a command or extension sends text,
-		 * but based on the terminal's mode it can also happen on:
-		 *
-		 * - a pointer click event
-		 * - a pointer scroll event
-		 * - a pointer move event
-		 * - terminal focus in/out
-		 *
-		 * For more information on events that can send data see "DEC Private Mode Set (DECSET)" on
-		 * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
-		 */
-		readonly interactedWith: boolean;
-	}
-
-	export interface Terminal {
-		/**
-		 * The current state of the {@link Terminal}.
-		 */
-		readonly state: TerminalState;
-	}
-
-	export namespace window {
-		/**
-		 * An {@link Event} which fires when a {@link Terminal.state terminal's state} has changed.
-		 */
-		export const onDidChangeTerminalState: Event<Terminal>;
-	}
-
-	//#endregion
-
-	//#region Terminal location https://github.com/microsoft/vscode/issues/45407
+	//#region terminalLocation: https://github.com/microsoft/vscode/issues/45407
 
 	export interface TerminalOptions {
 		location?: TerminalLocation | TerminalEditorLocationOptions | TerminalSplitLocationOptions;
@@ -970,7 +929,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Terminal name change event https://github.com/microsoft/vscode/issues/114898
+	//#region terminalNameChangeEvent: https://github.com/microsoft/vscode/issues/114898
 
 	export interface Pseudoterminal {
 		/**
@@ -994,8 +953,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	// eslint-disable-next-line vscode-dts-region-comments
-	//#region @jrieken -> exclusive document filters
+	//#region exclusiveDocumentFilters: @jrieken
 
 	export interface DocumentFilter {
 		readonly exclusive?: boolean;
@@ -1003,13 +961,13 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Tree View: https://github.com/microsoft/vscode/issues/61313 @alexr00
+	//#region treeViewReveal: https://github.com/microsoft/vscode/issues/61313 @alexr00
 	export interface TreeView<T> extends Disposable {
 		reveal(element: T | undefined, options?: { select?: boolean, focus?: boolean, expand?: boolean | number; }): Thenable<void>;
 	}
 	//#endregion
 
-	//#region Custom Tree View Drag and Drop https://github.com/microsoft/vscode/issues/32592
+	//#region treeViewDragAndDrop: https://github.com/microsoft/vscode/issues/32592
 	/**
 	 * A data provider that provides tree data
 	 */
@@ -1042,7 +1000,7 @@ declare module 'vscode' {
 		 * JSON.parse(await (items.get('text/treeitem')!.asString()))
 		 * ```
 		 */
-		items: { get: (mimeType: string) => TreeDataTransferItem | undefined };
+		items: { get: (mimeType: string) => TreeDataTransferItem | undefined; };
 	}
 
 	export interface DragAndDropController<T> extends Disposable {
@@ -1073,7 +1031,7 @@ declare module 'vscode' {
 	}
 	//#endregion
 
-	//#region Task presentation group: https://github.com/microsoft/vscode/issues/47265
+	//#region taskPresentationGroup: https://github.com/microsoft/vscode/issues/47265
 	export interface TaskPresentationOptions {
 		/**
 		 * Controls whether the task is executed in a specific terminal group using split panes.
@@ -1087,7 +1045,7 @@ declare module 'vscode' {
 	}
 	//#endregion
 
-	//#region Custom editor move https://github.com/microsoft/vscode/issues/86146
+	//#region customEditorMove: https://github.com/microsoft/vscode/issues/86146
 
 	// TODO: Also for custom editor
 
@@ -1111,23 +1069,18 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region allow QuickPicks to skip sorting: https://github.com/microsoft/vscode/issues/73904
+	//#region quickPickSortByLabel: https://github.com/microsoft/vscode/issues/73904
 
 	export interface QuickPick<T extends QuickPickItem> extends QuickInput {
 		/**
 		 * An optional flag to sort the final results by index of first query match in label. Defaults to true.
 		 */
 		sortByLabel: boolean;
-
-		/*
-		 * An optional flag that can be set to true to maintain the scroll position of the quick pick when the quick pick items are updated. Defaults to false.
-		 */
-		keepScrollPosition?: boolean;
 	}
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/124970, Cell Execution State
+	//#region notebookCellExecutionState: https://github.com/microsoft/vscode/issues/124970
 
 	/**
 	 * The execution state of a notebook cell.
@@ -1174,7 +1127,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, Notebook, deprecated & misc
+	//#region notebookDeprecated: https://github.com/microsoft/vscode/issues/106744
 
 	export interface NotebookCellOutput {
 		id: string;
@@ -1182,7 +1135,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, NotebookEditor
+	//#region notebookEditor: https://github.com/microsoft/vscode/issues/106744
 
 	/**
 	 * Represents a notebook editor that is attached to a {@link NotebookDocument notebook}.
@@ -1298,7 +1251,7 @@ declare module 'vscode' {
 		 * The {@link NotebookEditor notebook editor} for which the selections have changed.
 		 */
 		readonly notebookEditor: NotebookEditor;
-		readonly selections: ReadonlyArray<NotebookRange>
+		readonly selections: ReadonlyArray<NotebookRange>;
 	}
 
 	export interface NotebookEditorVisibleRangesChangeEvent {
@@ -1347,7 +1300,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, NotebookEditorEdit
+	//#region notebookEditorEdit: https://github.com/microsoft/vscode/issues/106744
 
 	// todo@API add NotebookEdit-type which handles all these cases?
 	// export class NotebookEdit {
@@ -1367,15 +1320,15 @@ declare module 'vscode' {
 
 	export interface WorkspaceEdit {
 		// todo@API add NotebookEdit-type which handles all these cases?
-		replaceNotebookMetadata(uri: Uri, value: { [key: string]: any }): void;
+		replaceNotebookMetadata(uri: Uri, value: { [key: string]: any; }): void;
 		replaceNotebookCells(uri: Uri, range: NotebookRange, cells: NotebookCellData[], metadata?: WorkspaceEditEntryMetadata): void;
-		replaceNotebookCellMetadata(uri: Uri, index: number, cellMetadata: { [key: string]: any }, metadata?: WorkspaceEditEntryMetadata): void;
+		replaceNotebookCellMetadata(uri: Uri, index: number, cellMetadata: { [key: string]: any; }, metadata?: WorkspaceEditEntryMetadata): void;
 	}
 
 	export interface NotebookEditorEdit {
-		replaceMetadata(value: { [key: string]: any }): void;
+		replaceMetadata(value: { [key: string]: any; }): void;
 		replaceCells(start: number, end: number, cells: NotebookCellData[]): void;
-		replaceCellMetadata(index: number, metadata: { [key: string]: any }): void;
+		replaceCellMetadata(index: number, metadata: { [key: string]: any; }): void;
 	}
 
 	export interface NotebookEditor {
@@ -1395,7 +1348,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, NotebookEditorDecorationType
+	//#region notebookEditorDecorationType: https://github.com/microsoft/vscode/issues/106744
 
 	export interface NotebookEditor {
 		setDecorations(decorationType: NotebookEditorDecorationType, range: NotebookRange): void;
@@ -1404,7 +1357,7 @@ declare module 'vscode' {
 	export interface NotebookDecorationRenderOptions {
 		backgroundColor?: string | ThemeColor;
 		borderColor?: string | ThemeColor;
-		top: ThemableDecorationAttachmentRenderOptions;
+		top?: ThemableDecorationAttachmentRenderOptions;
 	}
 
 	export interface NotebookEditorDecorationType {
@@ -1418,7 +1371,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, NotebookConcatTextDocument
+	//#region notebookConcatTextDocument: https://github.com/microsoft/vscode/issues/106744
 
 	export namespace notebooks {
 		/**
@@ -1453,8 +1406,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, NotebookContentProvider
-
+	//#region notebookContentProvider: https://github.com/microsoft/vscode/issues/106744
 
 	interface NotebookDocumentBackup {
 		/**
@@ -1514,7 +1466,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/106744, LiveShare
+	//#region notebookLiveShare: https://github.com/microsoft/vscode/issues/106744
 
 	export interface NotebookRegistrationData {
 		displayName: string;
@@ -1531,7 +1483,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region @https://github.com/microsoft/vscode/issues/123601, notebook messaging
+	//#region notebookMessaging: https://github.com/microsoft/vscode/issues/123601
 
 	/**
 	 * Represents a script that is loaded into the notebook renderer before rendering output. This allows
@@ -1547,18 +1499,24 @@ declare module 'vscode' {
 		provides: string[];
 
 		/**
-		 * URI for the file to preload
+		 * URI of the JavaScript module to preload.
+		 *
+		 * This module must export an `activate` function that takes a context object that contains the notebook API.
 		 */
 		uri: Uri;
 
 		/**
-		 * @param uri URI for the file to preload
+		 * @param uri URI of the JavaScript module to preload
 		 * @param provides Value for the `provides` property
 		 */
 		constructor(uri: Uri, provides?: string | string[]);
 	}
 
 	export interface NotebookController {
+		/**
+		 * The human-readable label used to categorise controllers.
+		 */
+		kind?: string;
 
 		// todo@API allow add, not remove
 		readonly rendererScripts: NotebookRendererScript[];
@@ -1567,7 +1525,7 @@ declare module 'vscode' {
 		 * An event that fires when a {@link NotebookController.rendererScripts renderer script} has send a message to
 		 * the controller.
 		 */
-		readonly onDidReceiveMessage: Event<{ editor: NotebookEditor, message: any }>;
+		readonly onDidReceiveMessage: Event<{ editor: NotebookEditor, message: any; }>;
 
 		/**
 		 * Send a message to the renderer of notebook editors.
@@ -1592,7 +1550,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region @eamodio - timeline: https://github.com/microsoft/vscode/issues/84297
+	//#region timeline: https://github.com/microsoft/vscode/issues/84297
 
 	export class TimelineItem {
 		/**
@@ -1750,7 +1708,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/91555
+	//#region tokenInformation: https://github.com/microsoft/vscode/issues/91555
 
 	export enum StandardTokenType {
 		Other = 0,
@@ -1770,7 +1728,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/16221
+	//#region inlayHints: https://github.com/microsoft/vscode/issues/16221
 
 	// todo@API Split between Inlay- and OverlayHints (InlayHint are for a position, OverlayHints for a non-empty range)
 	// todo@API add "mini-markdown" for links and styles
@@ -1806,6 +1764,7 @@ declare module 'vscode' {
 		/**
 		 * The text of the hint.
 		 */
+		// todo@API label?
 		text: string;
 		/**
 		 * The position of this hint.
@@ -1838,6 +1797,7 @@ declare module 'vscode' {
 		 * An optional event to signal that inlay hints have changed.
 		 * @see {@link EventEmitter}
 		 */
+		//todo@API needs proper doc (like others)
 		onDidChangeInlayHints?: Event<void>;
 
 		/**
@@ -1851,7 +1811,7 @@ declare module 'vscode' {
 	}
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/104436
+	//#region extensionRuntime: https://github.com/microsoft/vscode/issues/104436
 
 	export enum ExtensionRuntime {
 		/**
@@ -1870,7 +1830,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/102091
+	//#region textDocumentNotebook: https://github.com/microsoft/vscode/issues/102091
 
 	export interface TextDocument {
 
@@ -1882,65 +1842,7 @@ declare module 'vscode' {
 	}
 	//#endregion
 
-	//#region non-error test output https://github.com/microsoft/vscode/issues/129201
-	interface TestRun {
-		/**
-		 * Appends raw output from the test runner. On the user's request, the
-		 * output will be displayed in a terminal. ANSI escape sequences,
-		 * such as colors and text styles, are supported.
-		 *
-		 * @param output Output text to append.
-		 * @param location Indicate that the output was logged at the given
-		 * location.
-		 * @param test Test item to associate the output with.
-		 */
-		appendOutput(output: string, location?: Location, test?: TestItem): void;
-	}
-	//#endregion
-
-	//#region test tags https://github.com/microsoft/vscode/issues/129456
-	/**
-	 * Tags can be associated with {@link TestItem TestItems} and
-	 * {@link TestRunProfile TestRunProfiles}. A profile with a tag can only
-	 * execute tests that include that tag in their {@link TestItem.tags} array.
-	 */
-	export class TestTag {
-		/**
-		 * ID of the test tag. `TestTag` instances with the same ID are considered
-		 * to be identical.
-		 */
-		readonly id: string;
-
-		/**
-		 * Creates a new TestTag instance.
-		 * @param id ID of the test tag.
-		 */
-		constructor(id: string);
-	}
-
-	export interface TestRunProfile {
-		/**
-		 * Associated tag for the profile. If this is set, only {@link TestItem}
-		 * instances with the same tag will be eligible to execute in this profile.
-		 */
-		tag?: TestTag;
-	}
-
-	export interface TestItem {
-		/**
-		 * Tags associated with this test item. May be used in combination with
-		 * {@link TestRunProfile.tags}, or simply as an organizational feature.
-		 */
-		tags: readonly TestTag[];
-	}
-
-	export interface TestController {
-		createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Thenable<void> | void, isDefault?: boolean, tag?: TestTag): TestRunProfile;
-	}
-
-	//#endregion
-
-	//#region proposed test APIs https://github.com/microsoft/vscode/issues/107467
+	//#region testObserver: https://github.com/microsoft/vscode/issues/107467
 	export namespace tests {
 		/**
 		 * Requests that tests be run by their controller.
@@ -2136,7 +2038,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region Opener service (https://github.com/microsoft/vscode/issues/109277)
+	//#region externalUriOpener: https://github.com/microsoft/vscode/issues/109277
 
 	/**
 	 * Details if an `ExternalUriOpener` can open a uri.
@@ -2247,7 +2149,7 @@ declare module 'vscode' {
 		 *
 		 * Currently only `http` and `https` are supported.
 		 */
-		readonly schemes: readonly string[]
+		readonly schemes: readonly string[];
 
 		/**
 		 * Text displayed to the user that explains what the opener does.
@@ -2294,7 +2196,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/Microsoft/vscode/issues/15178
+	//#region tabs: https://github.com/Microsoft/vscode/issues/15178
 
 	/**
 	 * Represents a tab within the window
@@ -2306,31 +2208,58 @@ declare module 'vscode' {
 		readonly label: string;
 
 		/**
-		 * The position of the tab
+		 * The index of the tab within the column
+		 */
+		readonly index: number;
+
+		/**
+		 * The column which the tab belongs to
 		 */
 		readonly viewColumn: ViewColumn;
 
 		/**
-		 * The resource represented by the tab if availble.
-		 * If the tab contains more than one resource then primary will represent the left resource, and secondary the right one.
-		 * Note: Not all editor types have a resource associated with them
+		 * The resource represented by the tab if available.
+		 * Note: Not all tabs have a resource associated with them.
 		 */
-		readonly resource?: Uri | { primary?: Uri, secondary?: Uri };
+		readonly resource: Uri | undefined;
 
 		/**
-		 * The identifier of the editor which the tab should contain, because
-		 * not all tabs represent editors this may be undefined.
-		 * This is equivalent to `viewType` for custom editors and notebooks.
+		 * The identifier of the view contained in the tab
+		 * This is equivalent to `viewType` for custom editors and `notebookType` for notebooks.
 		 * The built-in text editor has an id of 'default' for all configurations.
-		 * Note: Tabs are not guaranteed to contain editors but this id represents what editor the tab will resolve if available
 		 */
-		readonly editorId?: string;
+		readonly viewId: string | undefined;
+
+		/**
+		 * All the resources and viewIds represented by a tab
+		 * {@link Tab.resource resource} and {@link Tab.viewId viewId} will
+		 * always be at index 0.
+		 */
+		readonly additionalResourcesAndViewIds: readonly {
+			readonly resource: Uri | undefined,
+			readonly viewId: string | undefined;
+		}[];
 
 		/**
 		 * Whether or not the tab is currently active
 		 * Dictated by being the selected tab in the active group
 		 */
 		readonly isActive: boolean;
+
+		/**
+		 * Moves a tab to the given index within the column.
+		 * If the index is out of range, the tab will be moved to the end of the column.
+		 * If the column is out of range, a new one will be created after the last existing column.
+		 * @param index The index to move the tab to
+		 * @param viewColumn The column to move the tab into
+		 */
+		move(index: number, viewColumn: ViewColumn): Thenable<void>;
+
+		/**
+		 * Closes the tab. This makes the tab object invalid and the tab
+		 * should no longer be used for further actions.
+		 */
+		close(): Thenable<void>;
 	}
 
 	export namespace window {
@@ -2362,7 +2291,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/120173
+	//#region workspaceTrust: https://github.com/microsoft/vscode/issues/120173
 	/**
 	 * The object describing the properties of the workspace trust request
 	 */
@@ -2386,7 +2315,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/115616 @alexr00
+	//#region portAttributesProvider: https://github.com/microsoft/vscode/issues/115616 @alexr00
 	export enum PortAutoForwardAction {
 		Notify = 1,
 		OpenBrowser = 2,
@@ -2437,23 +2366,11 @@ declare module 'vscode' {
 		 * The `portRange` is start inclusive and end exclusive.
 		 * @param provider The PortAttributesProvider
 		 */
-		export function registerPortAttributesProvider(portSelector: { pid?: number, portRange?: [number, number], commandMatcher?: RegExp }, provider: PortAttributesProvider): Disposable;
+		export function registerPortAttributesProvider(portSelector: { pid?: number, portRange?: [number, number], commandMatcher?: RegExp; }, provider: PortAttributesProvider): Disposable;
 	}
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/119904 @eamodio
-
-	export interface SourceControlInputBox {
-
-		/**
-		 * Sets focus to the input.
-		 */
-		focus(): void;
-	}
-
-	//#endregion
-
-	//#region https://github.com/microsoft/vscode/issues/124024 @hediet @alexdima
+	//#region inlineCompletionProvider: https://github.com/microsoft/vscode/issues/124024 @hediet @alexdima
 
 	export namespace languages {
 		/**
@@ -2575,7 +2492,7 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/126280 @mjbvz
+	//#region notebookMime: https://github.com/microsoft/vscode/issues/126280 @mjbvz
 
 	export interface NotebookCellData {
 		/**
@@ -2603,13 +2520,13 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/123713 @connor4312
+	//#region testCoverage: https://github.com/microsoft/vscode/issues/123713 @connor4312
 	export interface TestRun {
 		/**
 		 * Test coverage provider for this result. An extension can defer setting
 		 * this until after a run is complete and coverage is available.
 		 */
-		coverageProvider?: TestCoverageProvider
+		coverageProvider?: TestCoverageProvider;
 		// ...
 	}
 
@@ -2795,173 +2712,13 @@ declare module 'vscode' {
 	//#endregion
 
 
-	//#region https://github.com/microsoft/vscode/issues/15533 --- Type hierarchy --- @eskibear
 
-	/**
-	 * Represents an item of a type hierarchy, like a class or an interface.
-	 */
-	export class TypeHierarchyItem {
-		/**
-		 * The name of this item.
-		 */
-		name: string;
+	//#region scmActionButton: https://github.com/microsoft/vscode/issues/133935
 
-		/**
-		 * The kind of this item.
-		 */
-		kind: SymbolKind;
-
-		/**
-		 * Tags for this item.
-		 */
-		tags?: ReadonlyArray<SymbolTag>;
-
-		/**
-		 * More detail for this item, e.g. the signature of a function.
-		 */
-		detail?: string;
-
-		/**
-		 * The resource identifier of this item.
-		 */
-		uri: Uri;
-
-		/**
-		 * The range enclosing this symbol not including leading/trailing whitespace
-		 * but everything else, e.g. comments and code.
-		 */
-		range: Range;
-
-		/**
-		 * The range that should be selected and revealed when this symbol is being
-		 * picked, e.g. the name of a class. Must be contained by the {@link TypeHierarchyItem.range range}-property.
-		 */
-		selectionRange: Range;
-
-		/**
-		 * Creates a new type hierarchy item.
-		 *
-		 * @param kind The kind of the item.
-		 * @param name The name of the item.
-		 * @param detail The details of the item.
-		 * @param uri The Uri of the item.
-		 * @param range The whole range of the item.
-		 * @param selectionRange The selection range of the item.
-		 */
-		constructor(kind: SymbolKind, name: string, detail: string, uri: Uri, range: Range, selectionRange: Range);
-	}
-
-	/**
-	 * The type hierarchy provider interface describes the contract between extensions
-	 * and the type hierarchy feature.
-	 */
-	export interface TypeHierarchyProvider {
-
-		/**
-		 * Bootstraps type hierarchy by returning the item that is denoted by the given document
-		 * and position. This item will be used as entry into the type graph. Providers should
-		 * return `undefined` or `null` when there is no item at the given location.
-		 *
-		 * @param document The document in which the command was invoked.
-		 * @param position The position at which the command was invoked.
-		 * @param token A cancellation token.
-		 * @returns One or multiple type hierarchy items or a thenable that resolves to such. The lack of a result can be
-		 * signaled by returning `undefined`, `null`, or an empty array.
-		 */
-		prepareTypeHierarchy(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<TypeHierarchyItem | TypeHierarchyItem[]>;
-
-		/**
-		 * Provide all supertypes for an item, e.g all types from which a type is derived/inherited. In graph terms this describes directed
-		 * and annotated edges inside the type graph, e.g the given item is the starting node and the result is the nodes
-		 * that can be reached.
-		 *
-		 * @param item The hierarchy item for which super types should be computed.
-		 * @param token A cancellation token.
-		 * @returns A set of supertypes or a thenable that resolves to such. The lack of a result can be
-		 * signaled by returning `undefined` or `null`.
-		 */
-		provideTypeHierarchySupertypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
-
-		/**
-		 * Provide all subtypes for an item, e.g all types which are derived/inherited from the given item. In
-		 * graph terms this describes directed and annotated edges inside the type graph, e.g the given item is the starting
-		 * node and the result is the nodes that can be reached.
-		 *
-		 * @param item The hierarchy item for which subtypes should be computed.
-		 * @param token A cancellation token.
-		 * @returns A set of subtypes or a thenable that resolves to such. The lack of a result can be
-		 * signaled by returning `undefined` or `null`.
-		 */
-		provideTypeHierarchySubtypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
-	}
-
-	export namespace languages {
-		/**
-		 * Register a type hierarchy provider.
-		 *
-		 * @param selector A selector that defines the documents this provider is applicable to.
-		 * @param provider A type hierarchy provider.
-		 * @return A [disposable](#Disposable) that unregisters this provider when being disposed.
-		 */
-		export function registerTypeHierarchyProvider(selector: DocumentSelector, provider: TypeHierarchyProvider): Disposable;
-	}
-	//#endregion
-
-	//#region https://github.com/microsoft/vscode/issues/129037
-
-	enum LanguageStatusSeverity {
-		Information = 0,
-		Warning = 1,
-		Error = 2
-	}
-
-	interface LanguageStatusItem {
-		readonly id: string;
-		selector: DocumentSelector;
-		// todo@jrieken replace with boolean ala needsAttention
-		severity: LanguageStatusSeverity;
-		name: string | undefined;
-		text: string;
-		detail?: string;
-		command: Command | undefined;
-		accessibilityInformation?: AccessibilityInformation;
-		dispose(): void;
-	}
-
-	namespace languages {
-		export function createLanguageStatusItem(id: string, selector: DocumentSelector): LanguageStatusItem;
+	export interface SourceControl {
+		actionButton?: Command;
 	}
 
 	//#endregion
 
-	//#region https://github.com/microsoft/vscode/issues/88716
-	export interface QuickPickItem {
-		buttons?: QuickInputButton[];
-	}
-	export interface QuickPick<T extends QuickPickItem> extends QuickInput {
-		readonly onDidTriggerItemButton: Event<QuickPickItemButtonEvent<T>>;
-	}
-	export interface QuickPickItemButtonEvent<T extends QuickPickItem> {
-		button: QuickInputButton;
-		item: T;
-	}
-
-	//#endregion
-
-	//#region @mjbvz https://github.com/microsoft/vscode/issues/40607
-	export interface MarkdownString {
-		/**
-		 * Indicates that this markdown string can contain raw html tags. Default to false.
-		 *
-		 * When `supportHtml` is false, the markdown renderer will strip out any raw html tags
-		 * that appear in the markdown text. This means you can only use markdown syntax for rendering.
-		 *
-		 * When `supportHtml` is true, the markdown render will also allow a safe subset of html tags
-		 * and attributes to be rendered. See https://github.com/microsoft/vscode/blob/6d2920473c6f13759c978dd89104c4270a83422d/src/vs/base/browser/markdownRenderer.ts#L296
-		 * for a list of all supported tags and attributes.
-		 */
-		supportHtml?: boolean;
-	}
-
-	//#endregion
 }
