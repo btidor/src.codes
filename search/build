@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -euf -o pipefail
+
+TAG="src-codes/search"
+NAME="src-search"
+HOSTNAME="search.src.codes"
+IP6="2605:6400:5ba2::c0de:2"
+
+docker build --tag "$TAG" --pull "$(dirname $0)"
+
+STALE="$(docker container ls --all --quiet --filter name=$NAME)"
+if [[ "$STALE" ]]; then
+    docker container rm "$NAME"
+fi
+
+docker run -dit \
+    --mount "type=bind,source=/data,target=/data" \
+    --name "$NAME" \
+    --hostname "$HOSTNAME" \
+    --network public \
+    --ip6 "$IP6" \
+    "$TAG"
+
+docker image prune --force
