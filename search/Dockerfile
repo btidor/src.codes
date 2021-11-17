@@ -13,5 +13,6 @@ RUN apt update -yq && apt install -yq caddy
 
 # Run livegrep
 COPY launch-search /usr/local/bin/
+COPY Caddyfile /var/local
 
 CMD ["/usr/local/bin/launch-search"]

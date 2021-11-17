@@ -1,0 +1,8 @@
+search.src.codes
+
+tls /data/tls/certificate.pem /data/tls/key.pem
+
+encode zstd gzip
+
+respond / "Hello from search!"
+reverse_proxy * 127.0.0.1:8000

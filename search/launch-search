@@ -4,4 +4,7 @@ set -euf -o pipefail
 
 /livegrep/bin/codesearch -load_index /data/livegrep.idx &
 
-/livegrep/bin/livegrep /data/server.json
+/livegrep/bin/livegrep /data/server.json &
+
+cd /var/local
+caddy run
