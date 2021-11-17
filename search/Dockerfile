@@ -11,4 +11,7 @@ COPY caddy.list /etc/apt/sources.list.d/
 
 RUN apt update -yq && apt install -yq caddy
 
-CMD ["/bin/bash"]
+# Run livegrep
+COPY launch-search /usr/local/bin/
+
+CMD ["/usr/local/bin/launch-search"]

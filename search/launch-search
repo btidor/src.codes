@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -euf -o pipefail
+
+/livegrep/bin/codesearch -load_index /data/livegrep.idx &
+
+/livegrep/bin/livegrep /data/server.json
