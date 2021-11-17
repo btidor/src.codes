@@ -6,6 +6,7 @@ TAG="src-codes/search"
 NAME="src-search"
 HOSTNAME="search.src.codes"
 IP6="2605:6400:5ba2::c0de:2"
+DATADIR="/data/search"
 
 docker build --tag "$TAG" --pull "$(dirname $0)"
 
@@ -15,7 +16,7 @@ if [[ "$STALE" ]]; then
 fi
 
 docker run -dit \
-    --mount "type=bind,source=/data,target=/data" \
+    --mount "type=bind,source=$DATADIR,target=/data" \
     --name "$NAME" \
     --hostname "$HOSTNAME" \
     --network public \
