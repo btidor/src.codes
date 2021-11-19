@@ -2,18 +2,28 @@ FROM mcr.microsoft.com/vscode/devcontainers/base:0-focal
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Node and npm packages for extension development. VS Code uses Node
-# 14.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
-RUN (curl -sL https://deb.nodesource.com/setup_14.x | bash) && \
-    apt update -q && \
-    apt install -y -q nodejs && \
-    npm install -g yo generator-code
-
 # Pre-install VS Code build dependencies (used by vscode/build) so they're
 # cached in a layer.
 RUN apt update -q && \
     apt install -y -q build-essential g++ libx11-dev libxkbfile-dev \
         libsecret-1-dev python-is-python3
+
+# Set up third-party APT repositories
+COPY *.gpg /usr/share/keyrings/
+COPY *.list /etc/apt/sources.list.d/
+
+# Install Bazel and build Livegrep
+RUN apt update -q && \
+    apt install -y -q bazel bazel-4.0.0 && \
+    git clone https://github.com/livegrep/livegrep.git /var/livegrep && \
+    (cd /var/livegrep && bazel build //...) && \
+    cp /var/livegrep/bazel-bin/src/tools/codesearch /usr/local/bin
+
+# Install Node and npm packages for extension development. VS Code uses Node
+# 14.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
+RUN apt update -q && \
+    apt install -y -q nodejs && \
+    npm install -g yo generator-code
 
 # Install development tools
 RUN apt update -q && \
