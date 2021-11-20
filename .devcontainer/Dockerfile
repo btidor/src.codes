@@ -14,9 +14,9 @@ COPY *.list /etc/apt/sources.list.d/
 
 # Install Bazel and build Livegrep
 RUN apt update -q && \
-    apt install -y -q bazel bazel-4.0.0 && \
+    apt install -y -q bazel-4.0.0 && \
     git clone https://github.com/livegrep/livegrep.git /var/livegrep && \
-    (cd /var/livegrep && bazel build //...) && \
+    (cd /var/livegrep && bazel-4.0.0 build //...) && \
     cp /var/livegrep/bazel-bin/src/tools/codesearch /usr/local/bin
 
 # Install Node and npm packages for extension development. VS Code uses Node
