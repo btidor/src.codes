@@ -278,10 +278,6 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	symbols := analysis.ConstructSymbolsIndex(archive, ctags)
 	up.UploadSymbolsPackageIndex(*archive.Pkg, symbols)
 
-	fmt.Printf("[%s] Computing and uploading livegrep index\n", pkg.Slug())
-	livegrep := analysis.ConstructLivegrepIndex(archive)
-	up.UploadLivegrepPackageIndex(*archive.Pkg, livegrep)
-
 	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)
 

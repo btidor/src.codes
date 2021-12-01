@@ -16,13 +16,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo cp $GITHUB_WORKSPACE/.devcontainer/bazel.gpg /usr/share/keyrings/
-          sudo cp $GITHUB_WORKSPACE/.devcontainer/bazel.list /etc/apt/sources.list.d/
           sudo apt update -y
-          sudo apt install -y bazel-4.0.0 binutils universal-ctags
-          git clone https://github.com/livegrep/livegrep.git $GITHUB_WORKSPACE/livegrep
-          (cd $GITHUB_WORKSPACE/livegrep && bazel-4.0.0 build //...)
-          sudo cp $GITHUB_WORKSPACE/livegrep/bazel-bin/src/tools/codesearch /usr/local/bin
+          sudo apt install -y binutils universal-ctags
 
       - name: Run publisher
         run: go run -v ./cmd

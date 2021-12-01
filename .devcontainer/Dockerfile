@@ -12,13 +12,6 @@ RUN apt update -q && \
 COPY *.gpg /usr/share/keyrings/
 COPY *.list /etc/apt/sources.list.d/
 
-# Install Bazel and build Livegrep
-RUN apt update -q && \
-    apt install -y -q bazel-4.0.0 && \
-    git clone https://github.com/livegrep/livegrep.git /var/livegrep && \
-    (cd /var/livegrep && bazel-4.0.0 build //...) && \
-    cp /var/livegrep/bazel-bin/src/tools/codesearch /usr/local/bin
-
 # Install Node and npm packages for extension development. VS Code uses Node
 # 14.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
 RUN apt update -q && \

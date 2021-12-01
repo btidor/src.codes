@@ -101,7 +101,6 @@ func (d Document) GetFiles(key string) []File {
 	}
 	return files
 }
-
 func FindFileInList(files []File, name string) File {
 	var match File
 	var found bool
