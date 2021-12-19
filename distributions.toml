@@ -1,8 +1,3 @@
-[hirsute]
-mirror = "http://us.archive.ubuntu.com/ubuntu/"
-areas = ["security", "updates", ""]
-components = ["main", "multiverse"]
-
 [impish]
 mirror = "http://us.archive.ubuntu.com/ubuntu/"
 areas = ["security", "updates", ""]
