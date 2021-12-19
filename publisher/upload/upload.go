@@ -189,16 +189,12 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 	}()
 
 	for _, pv := range pkgvers {
-		filename := fmt.Sprintf(
-			"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
+		jobs <- internal.URLWithPathForBackblaze(
+			lsBase, distro, pv.Name,
+			fmt.Sprintf(
+				"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
+			),
 		)
-		u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
-		// Backblaze incorrectly treats a "+" in the path component as a space,
-		// so we need to escape this. Debugging FYI: Url.String() will ignore
-		// RawPath unless it's a valid encoding of Path. See:
-		// https://github.com/golang/go/issues/17340
-		u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
-		jobs <- u
 	}
 
 	close(jobs)
@@ -323,16 +319,12 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}()
 
 	for _, pv := range pkgvers {
-		filename := fmt.Sprintf(
-			"%s_%s:%d.symbols", pv.Name, pv.Version, pv.Epoch,
+		jobs <- internal.URLWithPathForBackblaze(
+			lsBase, distro, pv.Name,
+			fmt.Sprintf(
+				"%s_%s:%d.symbols", pv.Name, pv.Version, pv.Epoch,
+			),
 		)
-		u := internal.URLWithPath(lsBase, distro, pv.Name, filename)
-		// Backblaze incorrectly treats a "+" in the path component as a space,
-		// so we need to escape this. Debugging FYI: Url.String() will ignore
-		// RawPath unless it's a valid encoding of Path. See:
-		// https://github.com/golang/go/issues/17340
-		u.RawPath = strings.ReplaceAll(u.Path, "+", "%2B")
-		jobs <- u
 	}
 
 	close(jobs)
