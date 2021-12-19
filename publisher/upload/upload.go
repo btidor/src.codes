@@ -360,6 +360,38 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}
 }
 
+func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch []byte) {
+	var in bytes.Buffer
+	zw := gzip.NewWriter(&in)
+
+	_, err := zw.Write(codesearch)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
+
+	filename := fmt.Sprintf(
+		"%s_%s:%d.csi", pkg.Name, pkg.Version, publisher.Epoch,
+	)
+	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
+
+	obj := up.ls.Object(remote)
+	opts := b2.WithAttrsOption(&b2.Attrs{
+		Info: map[string]string{"b2-content-encoding": "gzip"},
+	})
+	out := obj.NewWriter(up.ctx, opts)
+	if _, err := io.Copy(out, &in); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err = out.Close(); err != nil {
+		panic(err)
+	}
+}
+
 func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageVersion) {
 	var list = make(map[string]interface{})
 	for _, pv := range pkgvers {

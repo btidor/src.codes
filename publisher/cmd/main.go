@@ -278,6 +278,10 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	symbols := analysis.ConstructSymbolsIndex(archive, ctags)
 	up.UploadSymbolsPackageIndex(*archive.Pkg, symbols)
 
+	fmt.Printf("[%s] Computing and uploading codesearch index\n", pkg.Slug())
+	codesearch := analysis.ConstructCodesearchIndex(archive)
+	up.UploadCodesearchPackageIndex(*archive.Pkg, codesearch)
+
 	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)
 
