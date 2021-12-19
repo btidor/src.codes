@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
 	"github.com/btidor/src.codes/publisher/apt"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	configPath      string = "distributions.toml"
+	configPath      string = "../distributions.toml"
 	pkgThreads      int    = 8
 	uploadThreads   int    = 4
 	downloadThreads int    = 16
@@ -37,12 +38,6 @@ const (
 
 var db *database.Database
 var up *upload.Uploader
-
-type configEntry struct {
-	Mirror     string
-	Areas      []string
-	Components []string
-}
 
 func main() {
 	var err error
@@ -69,8 +64,8 @@ func main() {
 	}
 	fmt.Println("\u2713 Backblaze")
 
-	// Read config file from `./distributions.toml`
-	var rawConfig map[string]configEntry
+	// Read config file from `../distributions.toml`
+	var rawConfig map[string]internal.ConfigEntry
 	_, err = toml.DecodeFile(configPath, &rawConfig)
 	if err != nil {
 		panic(err)
