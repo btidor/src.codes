@@ -19,6 +19,9 @@ func ConstructCodesearchIndex(a Archive) []byte {
 
 	cs := filepath.Join(container, "codesearch")
 	ix := index.Create(cs)
+	ix.AddPaths([]string{
+		a.Pkg.Name,
+	})
 
 	dir := strings.TrimSuffix(a.Dir, "/")
 	err = filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
@@ -35,7 +38,7 @@ func ConstructCodesearchIndex(a Archive) []byte {
 		defer file.Close()
 
 		ix.Add(
-			filepath.Join(a.Pkg.Name, path),
+			filepath.Join(a.Pkg.Name, strings.TrimPrefix(path, dir)),
 			file,
 		)
 		return nil
