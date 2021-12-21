@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -11,6 +12,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -412,4 +415,130 @@ func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageV
 	if err := out.Close(); err != nil {
 		panic(err)
 	}
+}
+
+type pruningCategories struct {
+	Corrupted        []*b2.Object
+	UnknownDistro    []*b2.Object
+	UnknownExtension []*b2.Object
+	WrongEpoch       []*b2.Object
+	Current          int
+}
+
+func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[string]bool) {
+	var p pruningCategories
+
+	iter := up.ls.List(up.ctx)
+	for iter.Next() {
+		filename := iter.Object().Name()
+		parts := strings.Split(filename, "/")
+		if filename == "robots.txt" {
+			// skip
+		} else if len(parts) != 3 {
+			p.Corrupted = append(p.Corrupted, iter.Object())
+		} else if !knownDistros[parts[0]] {
+			p.UnknownDistro = append(p.UnknownDistro, iter.Object())
+		} else if !knownSuffixes[filepath.Ext(filename)] {
+			p.UnknownExtension = append(p.UnknownExtension, iter.Object())
+		} else if epochFromFilename(filename) != publisher.Epoch {
+			p.WrongEpoch = append(p.WrongEpoch, iter.Object())
+		} else {
+			p.Current += 1
+		}
+	}
+	if err := iter.Err(); err != nil {
+		panic(err)
+	}
+
+	if ct := len(p.Corrupted); ct > 0 {
+		fmt.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Name())
+	}
+	if len(p.UnknownDistro) > 0 {
+		unknown := make(map[string]int)
+		for _, file := range p.UnknownDistro {
+			distro := strings.Split(file.Name(), "/")[0]
+			unknown[distro] += 1
+		}
+		for distro, ct := range unknown {
+			fmt.Printf("Unknown Distro:\t% 6d\t%s\n", ct, distro)
+		}
+	}
+	if len(p.UnknownExtension) > 0 {
+		unknown := make(map[string]int)
+		for _, file := range p.UnknownExtension {
+			ext := filepath.Ext(file.Name())
+			unknown[ext] += 1
+		}
+		for ext, ct := range unknown {
+			fmt.Printf("Unknown Extn:\t% 6d\t%s\n", ct, ext)
+		}
+	}
+	if len(p.WrongEpoch) > 0 {
+		wrong := make(map[int]int)
+		for _, file := range p.WrongEpoch {
+			epoch := epochFromFilename(file.Name())
+			wrong[epoch] += 1
+		}
+		for epoch, ct := range wrong {
+			fmt.Printf("Wrong Epoch:\t% 6d\t%d\n", ct, epoch)
+		}
+	}
+	fmt.Printf("\nTo Keep:\t% 6d\n\n", p.Current)
+
+	total := len(p.Corrupted) + len(p.UnknownDistro) + len(p.UnknownExtension) + len(p.WrongEpoch)
+	if total == 0 {
+		fmt.Printf("Nothing to do!\n")
+		return
+	}
+	fmt.Printf("Press ENTER to delete %d files!\n", total)
+	bufio.NewReader(os.Stdin).ReadString('\n')
+
+	fmt.Printf("Deleting...\n")
+	count := up.deleteFiles(p.Corrupted, 0, total)
+	count = up.deleteFiles(p.UnknownDistro, count, total)
+	count = up.deleteFiles(p.UnknownExtension, count, total)
+	up.deleteFiles(p.WrongEpoch, count, total)
+	fmt.Printf("Done!\n")
+}
+
+func epochFromFilename(filename string) int {
+	parts := strings.Split(
+		strings.TrimSuffix(filename, filepath.Ext(filename)),
+		":",
+	)
+	epoch, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		panic(err)
+	}
+	return epoch
+}
+
+func (up *Uploader) deleteFiles(files []*b2.Object, start, total int) int {
+	var jobs = make(chan *b2.Object)
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+	for w := 0; w < up.downloadThreads; w++ {
+		wg.Add(1)
+		go func(w int, jobs <-chan *b2.Object, wg *sync.WaitGroup) {
+			defer wg.Done()
+			for file := range jobs {
+				if err := file.Delete(up.ctx); err != nil {
+					panic(err)
+				}
+				mutex.Lock()
+				start += 1
+				if start%1000 == 0 {
+					fmt.Printf("% 6d / % 6d\n", start, total)
+				}
+				mutex.Unlock()
+			}
+		}(w, jobs, &wg)
+	}
+	for _, file := range files {
+		jobs <- file
+	}
+	close(jobs)
+	wg.Wait()
+
+	return start
 }

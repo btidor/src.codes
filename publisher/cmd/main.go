@@ -36,6 +36,8 @@ const (
 	reindexDistro bool = false
 )
 
+var knownSuffixes = []string{".csi", ".fzf", ".json", ".symbols", ".tags"}
+
 var db *database.Database
 var up *upload.Uploader
 
@@ -98,14 +100,27 @@ func main() {
 	fmt.Println()
 
 	// Run!
-	var errored = false
-	for _, distro := range config {
-		if processDistro(distro) {
-			errored = true
+	if len(os.Args) > 1 && os.Args[1] == "prune" {
+		knownDistros := make(map[string]bool)
+		for _, distro := range config {
+			knownDistros[distro.Name] = true
 		}
-	}
-	if errored {
-		os.Exit(1)
+		knownSuffixesMap := make(map[string]bool)
+		for _, suff := range knownSuffixes {
+			knownSuffixesMap[suff] = true
+		}
+		up.PruneLs(knownSuffixesMap, knownDistros)
+		// TODO: also prune `cat` and `meta`
+	} else {
+		var errored = false
+		for _, distro := range config {
+			if processDistro(distro) {
+				errored = true
+			}
+		}
+		if errored {
+			os.Exit(1)
+		}
 	}
 }
 
