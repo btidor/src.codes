@@ -59,7 +59,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	distro := parts[1]
 	if distro == "" {
 		// Requests to `/` show a welcome message
-		fmt.Fprintf(w, "Hello from grep@dev!\n")
+		fmt.Fprintf(w, "Hello from grep@dev!\n") // TODO
 		return
 	}
 	idxlist, ok := g.indexes[distro]

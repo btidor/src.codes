@@ -4,7 +4,7 @@ vendor/
 
 # Build directories
 target/
-/build/
+/_build/
 /extension/dist/
 
 # Profiling artifacts
@@ -13,7 +13,7 @@ perf.data*
 
 # Local cache
 *.fzf
-/data/
+/_data/
 
 # For Vercel
 .vercel

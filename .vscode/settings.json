@@ -1,33 +1,23 @@
 {
     "files.exclude": {
+        "_build": true,
+        "_data": true,
         ".vercel": true,
         "api/target": true,
-        "build": true,
-        "data": true,
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,
         "vendor": true
     },
     "files.watcherExclude": {
+        "_build": true,
+        "_data": true,
         ".vercel": true,
         "api/target": true,
-        "build": true,
-        "data": true,
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,
         "vendor": true
-    },
-    "search.exclude": {
-        ".vercel": true,
-        "api/target": true,
-        "build": true,
-        "data": true,
-        "extension/node_modules": true,
-        "extension/dist": true,
-        "fzf/target": true,
-        "vendor": true,
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off"

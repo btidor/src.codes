@@ -4,7 +4,7 @@ set -veu -o pipefail
 shopt -s failglob
 
 export PROJECT_BASE="$(dirname $(dirname $(realpath $0)))"
-export BUILD_DIR="$PROJECT_BASE/build"
+export BUILD_DIR="$PROJECT_BASE/_build"
 
 export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.63.1.tar.gz"
 
