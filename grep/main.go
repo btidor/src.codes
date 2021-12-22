@@ -15,6 +15,8 @@ var (
 	downloadThreads int = 16
 )
 
+var commit string = "dev"
+
 var configPath, dataDir, certPath, keyPath string
 var distros = make(map[string]bool)
 

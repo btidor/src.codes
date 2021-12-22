@@ -50,6 +50,8 @@ type grepHandler struct {
 }
 
 func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Cache-Control", "no-cache")
+
 	var parts = strings.Split(r.URL.Path, "/")
 	if len(parts) != 2 {
 		// Invalid path
@@ -59,7 +61,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	distro := parts[1]
 	if distro == "" {
 		// Requests to `/` show a welcome message
-		fmt.Fprintf(w, "Hello from grep@dev!\n") // TODO
+		fmt.Fprintf(w, "Hello from grep@%s!\n", commit)
 		return
 	}
 	idxlist, ok := g.indexes[distro]
@@ -79,8 +81,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var grep = regexp.Grep{Stdout: w, Stderr: w}
 	re, err := regexp.Compile("(?m)" + query)
 	if err != nil {
-		// TODO: handle gracefully
-		panic(err)
+		internal.HTTPError(w, r, 400)
+		return
 	}
 	grep.Regexp = re
 	var iquery = index.RegexpQuery(re.Syntax)

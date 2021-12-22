@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -euf -o pipefail
+
+cd /var/src.codes
+
+export COMMIT="$(git log --pretty=format:%h -n 1)"
+
+/usr/local/go/bin/go run \
+    -ldflags "-X main.commit=$COMMIT" \
+    ./grep serve \
+    -cert /data/tls/certificate.pem \
+    -key /data/tls/key.pem
