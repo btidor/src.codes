@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/btidor/src.codes/internal"
+	"github.com/google/codesearch/index"
+	"github.com/google/codesearch/regexp"
 )
 
 func serve() {
@@ -35,10 +38,15 @@ func serve() {
 			return
 		}
 
-		var results = search(query)
-		for _, result := range results {
-			fmt.Fprintln(w, result)
+		var grep = regexp.Grep{Stdout: w, Stderr: w}
+		re, err := regexp.Compile("(?m)" + query)
+		if err != nil {
+			// TODO: handle gracefully
+			panic(err)
 		}
+		grep.Regexp = re
+		var iquery = index.RegexpQuery(re.Syntax)
+		search(distro, grep, iquery)
 	})
 	var err error
 	if certPath != "" || keyPath != "" {
@@ -51,7 +59,22 @@ func serve() {
 	panic(err)
 }
 
-func search(query string) []string {
-	// TODO
-	return []string{}
+func search(distro string, grep regexp.Grep, iquery *index.Query) {
+	indexes, err := filepath.Glob(
+		filepath.Join(dataDir, "grep", distro, "*", "*.csi"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	if len(indexes) < 1 {
+		panic("no indexes found")
+	}
+
+	for _, name := range indexes {
+		ix := index.Open(name)
+		for _, fileid := range ix.PostingQuery(iquery) {
+			path := filepath.Join(dataDir, "packages", distro, ix.Name(fileid))
+			grep.File(path)
+		}
+	}
 }
