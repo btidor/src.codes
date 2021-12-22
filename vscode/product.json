@@ -1,7 +1,7 @@
 {
-    "version": "1.59.1-src.codes",
-    "commit": "{{COMMIT}}",
-    "date": "{{DATE}}",
+	"version": "1.63.2-src.codes",
+	"commit": "{{COMMIT}}",
+	"date": "{{DATE}}",
 	"nameShort": "src.codes",
 	"nameLong": "src.codes",
 	"reportIssueUrl": "https://github.com/btidor/src.codes/issues/new",
@@ -15,6 +15,5 @@
 		"GitHub.remotehub",
 		"GitHub.remotehub-insiders"
 	],
-	"builtInExtensions": [
-	]
+	"builtInExtensions": []
 }

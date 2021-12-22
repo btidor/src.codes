@@ -11,7 +11,9 @@
   "categories": [
     "Other"
   ],
-  "enableProposedApi": true,
+  "enabledApiProposals": [
+    "fileSearchProvider"
+  ],
   "activationEvents": [
     "onFileSystem:srccodes",
     "onCommand:src-codes-explore"
