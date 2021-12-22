@@ -2,18 +2,18 @@
 node_modules/
 vendor/
 
+# Build directories
+target/
+/build/
+/extension/dist/
+
 # Profiling artifacts
 *.pprof
 perf.data*
 
 # Local cache
 *.fzf
+/data/
 
 # For Vercel
 .vercel
-
-# src.codes build directories
-/api/target/
-/build/
-/extension/dist/
-/fzf/target/
