@@ -11,7 +11,21 @@ import (
 	"github.com/google/codesearch/regexp"
 )
 
+var indexes = make(map[string][]string)
+
 func serve() {
+	for distro := range distros {
+		matches, err := filepath.Glob(
+			filepath.Join(dataDir, "grep", distro, "*", "*.csi"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		if len(matches) < 1 {
+			panic("no indexes found for distro "+distro)
+		}
+		indexes[distro] = matches
+	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var parts = strings.Split(r.URL.Path, "/")
 		if len(parts) != 2 {
@@ -60,17 +74,7 @@ func serve() {
 }
 
 func search(distro string, grep regexp.Grep, iquery *index.Query) {
-	indexes, err := filepath.Glob(
-		filepath.Join(dataDir, "grep", distro, "*", "*.csi"),
-	)
-	if err != nil {
-		panic(err)
-	}
-	if len(indexes) < 1 {
-		panic("no indexes found")
-	}
-
-	for _, name := range indexes {
+	for _, name := range indexes[distro] {
 		ix := index.Open(name)
 		for _, fileid := range ix.PostingQuery(iquery) {
 			path := filepath.Join(dataDir, "packages", distro, ix.Name(fileid))
