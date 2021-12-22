@@ -29,7 +29,7 @@ func main() {
 			"Path to configuration file",
 		)
 		fs.StringVar(
-			&dataDir, "data", "/data/codesearch",
+			&dataDir, "data", "/data",
 			"Path to data directory",
 		)
 	}

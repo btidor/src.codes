@@ -2,11 +2,12 @@
 
 set -euf -o pipefail
 
-TAG="src-codes/search"
-NAME="src-search"
-HOSTNAME="search.src.codes"
+TAG="src-codes/grep"
+NAME="src-grep"
+HOSTNAME="grep.src.codes"
 IP6="2605:6400:5ba2::c0de:2"
-DATADIR="/data/search"
+DATADIR="/data/grep"
+SRCDIR="/var/src.codes"
 
 docker build --tag "$TAG" --pull "$(dirname $0)"
 
@@ -17,6 +18,7 @@ fi
 
 docker run -dit \
     --mount "type=bind,source=$DATADIR,target=/data" \
+    --mount "type=bind,source=$SRCDIR,target=/var/src.codes,readonly" \
     --name "$NAME" \
     --hostname "$HOSTNAME" \
     --network public \
