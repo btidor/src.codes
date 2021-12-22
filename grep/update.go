@@ -10,6 +10,13 @@ import (
 	"github.com/btidor/src.codes/internal"
 )
 
+func update() {
+	for distro, _ := range distros {
+		updateDistro(distro)
+	}
+	fmt.Printf("Done!\n")
+}
+
 func updateDistro(distro string) {
 	// Download package files in parallel
 	var wg sync.WaitGroup
@@ -77,7 +84,7 @@ func (p Package) Filename(ext string) string {
 }
 
 func (p Package) LocalDir() string {
-	return filepath.Join(localCache, p.Distro, p.Name)
+	return filepath.Join(dataDir, p.Distro, p.Name)
 }
 
 func (p Package) LocalCsi() string {
