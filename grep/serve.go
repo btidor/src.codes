@@ -40,7 +40,14 @@ func serve() {
 			fmt.Fprintln(w, result)
 		}
 	})
-	err := http.ListenAndServeTLS(":443", certPath, keyPath, nil)
+	var err error
+	if certPath != "" || keyPath != "" {
+		fmt.Println("Listening on :443")
+		err = http.ListenAndServeTLS(":443", certPath, keyPath, nil)
+	} else {
+		fmt.Println("Listening on :5050")
+		err = http.ListenAndServe(":5050", nil)
+	}
 	panic(err)
 }
 

@@ -34,10 +34,10 @@ func main() {
 		)
 	}
 	serveCmd.StringVar(
-		&certPath, "cert", "", "Path to TLS certificate file (required)",
+		&certPath, "cert", "", "Path to TLS certificate file",
 	)
 	serveCmd.StringVar(
-		&keyPath, "key", "", "Path to TLS private key (required)",
+		&keyPath, "key", "", "Path to TLS private key",
 	)
 
 	var subcommand = ""
@@ -49,10 +49,6 @@ func main() {
 		updateCmd.Parse(os.Args[2:])
 	case "serve":
 		serveCmd.Parse(os.Args[2:])
-		if certPath == "" || keyPath == "" {
-			fmt.Printf("options -cert and -key are required\n")
-			os.Exit(2)
-		}
 	default:
 		fmt.Printf("usage: %s <command> [options]\n", os.Args[0])
 		fmt.Printf("\nCommands: update, serve\n")
