@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/codesearch/index"
+	"github.com/klauspost/compress/zstd"
 )
 
 const (
@@ -40,7 +41,11 @@ func ConstructCodesearchIndex(a Archive) ([]byte, []byte) {
 	if err != nil {
 		panic(err)
 	}
-	ar := tar.NewWriter(af)
+	zw, err := zstd.NewWriter(af)
+	if err != nil {
+		panic(err)
+	}
+	ar := tar.NewWriter(zw)
 
 	win := make([]byte, binarySniffingWindow)
 
@@ -106,6 +111,9 @@ func ConstructCodesearchIndex(a Archive) ([]byte, []byte) {
 	ix.Flush()
 
 	if err := ar.Close(); err != nil {
+		panic(err)
+	}
+	if err := zw.Close(); err != nil {
 		panic(err)
 	}
 	if err := af.Close(); err != nil {

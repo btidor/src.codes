@@ -387,7 +387,7 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, so
 	}
 
 	filename = fmt.Sprintf(
-		"%s_%s:%d.tar", pkg.Name, pkg.Version, publisher.Epoch,
+		"%s_%s:%d.tar.zst", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	obj = up.ls.Object(
 		path.Join(pkg.Source.Distro, pkg.Name, filename),
