@@ -36,7 +36,7 @@ const (
 	reindexDistro bool = false
 )
 
-var knownSuffixes = []string{".csi", ".fzf", ".json", ".symbols", ".tags", ".tar.zst"}
+var knownExtns = []string{".csi", ".fzf", ".json", ".symbols", ".tags", ".zst"}
 
 var db *database.Database
 var up *upload.Uploader
@@ -106,7 +106,7 @@ func main() {
 			knownDistros[distro.Name] = true
 		}
 		knownSuffixesMap := make(map[string]bool)
-		for _, suff := range knownSuffixes {
+		for _, suff := range knownExtns {
 			knownSuffixesMap[suff] = true
 		}
 		up.PruneLs(knownSuffixesMap, knownDistros)

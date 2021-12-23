@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,8 @@ import (
 const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 var lsBase = internal.URLMustParse("https://ls.src.codes")
+
+var epochExtractor = regexp.MustCompile(":([0-9]+)(\\.[a-z0-9]+)+$")
 
 type Uploader struct {
 	ctx context.Context
@@ -517,11 +520,11 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 }
 
 func epochFromFilename(filename string) int {
-	parts := strings.Split(
-		strings.TrimSuffix(filename, filepath.Ext(filename)),
-		":",
-	)
-	epoch, err := strconv.Atoi(parts[len(parts)-1])
+	parts := epochExtractor.FindStringSubmatch(filename)
+	if parts == nil || len(parts) < 2 {
+		panic("could not match filename: " + filename)
+	}
+	epoch, err := strconv.Atoi(parts[1])
 	if err != nil {
 		panic(err)
 	}
