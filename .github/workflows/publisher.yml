@@ -20,8 +20,7 @@ jobs:
           sudo apt install -y binutils universal-ctags
 
       - name: Run publisher
-        run: go run -v ./cmd
-        working-directory: ./publisher
+        run: go run -v ./publisher/cmd
         env:
           DATABASE: ${{ secrets.DATABASE }}
           B2_LS_KEY: ${{ secrets.B2_LS_KEY }}
