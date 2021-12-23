@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	configPath      string = "../distributions.toml"
+	configPath      string = "distributions.toml"
 	pkgThreads      int    = 8
 	uploadThreads   int    = 4
 	downloadThreads int    = 16
@@ -289,8 +289,8 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	up.UploadSymbolsPackageIndex(*archive.Pkg, symbols)
 
 	fmt.Printf("[%s] Computing and uploading codesearch index\n", pkg.Slug())
-	codesearch := analysis.ConstructCodesearchIndex(archive)
-	up.UploadCodesearchPackageIndex(*archive.Pkg, codesearch)
+	codesearch, sourcetar := analysis.ConstructCodesearchIndex(archive)
+	up.UploadCodesearchPackageIndex(*archive.Pkg, codesearch, sourcetar)
 
 	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)

@@ -355,7 +355,7 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}
 }
 
-func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch []byte) {
+func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, sourcetar []byte) {
 	var in bytes.Buffer
 	zw := gzip.NewWriter(&in)
 
@@ -382,7 +382,22 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch []b
 		out.Close()
 		panic(err)
 	}
-	if err = out.Close(); err != nil {
+	if err := out.Close(); err != nil {
+		panic(err)
+	}
+
+	filename = fmt.Sprintf(
+		"%s_%s:%d.tar", pkg.Name, pkg.Version, publisher.Epoch,
+	)
+	obj = up.ls.Object(
+		path.Join(pkg.Source.Distro, pkg.Name, filename),
+	)
+	out = obj.NewWriter(up.ctx)
+	if _, err := out.Write(sourcetar); err != nil {
+		out.Close()
+		panic(err)
+	}
+	if err := out.Close(); err != nil {
 		panic(err)
 	}
 }
