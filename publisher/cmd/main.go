@@ -36,7 +36,7 @@ const (
 	reindexDistro bool = false
 )
 
-var knownSuffixes = []string{".csi", ".fzf", ".json", ".symbols", ".tags"}
+var knownSuffixes = []string{".csi", ".fzf", ".json", ".symbols", ".tags", ".tar.zst"}
 
 var db *database.Database
 var up *upload.Uploader

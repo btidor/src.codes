@@ -1,8 +1,11 @@
 package main
 
 import (
+	"archive/tar"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -10,6 +13,7 @@ import (
 	"github.com/btidor/src.codes/internal"
 	"github.com/google/codesearch/index"
 	"github.com/google/codesearch/regexp"
+	"github.com/klauspost/compress/zstd"
 )
 
 func serve() {
@@ -91,10 +95,49 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	grep.Regexp = re
 	var iquery = index.RegexpQuery(re.Syntax)
 	for _, name := range idxlist {
+		var paths = make(map[string]bool)
+		var count int
 		ix := index.Open(name)
 		for _, fileid := range ix.PostingQuery(iquery) {
-			path := filepath.Join(dataDir, "packages", distro, ix.Name(fileid))
-			grep.File(path)
+			paths[ix.Name(fileid)] = true
+			count += 1
+		}
+
+		sources := strings.TrimSuffix(name, ".csi") + ".tar.zst"
+		f, err := os.Open(sources)
+		if err != nil {
+			continue // TODO: change to panic
+			// panic("couldn't open archive: " + sources)
+		}
+		zr, err := zstd.NewReader(f)
+		if err != nil {
+			panic(err)
+		}
+		ar := tar.NewReader(zr)
+		for {
+			hdr, err := ar.Next()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				panic(err)
+			}
+			if pending, ok := paths[hdr.Name]; ok {
+				if !pending {
+					panic("visited path twice: " + hdr.Name)
+				}
+				grep.Reader(ar, hdr.Name)
+
+				paths[hdr.Name] = false
+				count -= 1
+				if count == 0 {
+					break
+				}
+			}
+		}
+		for path, pending := range paths {
+			if pending {
+				panic("failed to visit path: " + path)
+			}
 		}
 	}
 }
