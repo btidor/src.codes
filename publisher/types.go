@@ -5,7 +5,7 @@ import "net/url"
 
 // Epoch is the current version of the publisher. Bumping this number will cause
 // every package's index files to be recomputed.
-const Epoch = 3
+const Epoch = 4
 
 // Distro represents an umbrella distribution like 'hirsute' or 'buster'.
 type Distro struct {
