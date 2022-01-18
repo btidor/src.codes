@@ -1,13 +1,17 @@
 package main
 
 import (
+	"archive/tar"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/btidor/src.codes/internal"
+	"github.com/klauspost/compress/zstd"
 )
 
 func update() {
@@ -28,8 +32,9 @@ func updateDistro(distro string) {
 			defer wg.Done()
 			for pkg := range jobs {
 				fmt.Printf("[%s] Downloading codesearch index\n", pkg.Slug())
-				pkg.Download(".csi")
-				pkg.Download(".tar.zst")
+				pkg.Download(fastDir, ".csi")
+				pkg.Download(bulkDir, ".tar.zst")
+				pkg.Decompress()
 			}
 		}(w, jobs, &wg)
 	}
@@ -84,21 +89,63 @@ func (p Package) Filename(ext string) string {
 	return fmt.Sprintf("%s_%s:%d%s", p.Name, p.Version, p.Epoch, ext)
 }
 
-func (p Package) LocalDir() string {
-	return filepath.Join(dataDir, "grep", p.Distro, p.Name)
+func (p Package) LocalDir(base string) string {
+	prefix := string(p.Name[0])
+	if strings.HasPrefix(p.Name, "lib") && len(p.Name) > 3 {
+		prefix = p.Name[0:4]
+	}
+	return filepath.Join(base, "grep", p.Distro, prefix, p.Name)
 }
 
-func (p Package) Download(ext string) {
-	if err := os.MkdirAll(p.LocalDir(), 0755); err != nil {
+func (p Package) Download(base, ext string) {
+	if err := os.MkdirAll(p.LocalDir(base), 0755); err != nil {
 		panic(err)
 	}
 
-	local := filepath.Join(p.LocalDir(), p.Filename(ext))
+	local := filepath.Join(p.LocalDir(base), p.Filename(ext))
 	if _, err := os.Stat(local); err != nil {
 		// File not yet downloaded
 		remote := internal.URLWithPathForBackblaze(
 			lsBase, p.Distro, p.Name, p.Filename(ext),
 		)
 		internal.SaveFile(local, remote)
+	}
+}
+
+func (p Package) Decompress() {
+	archive := filepath.Join(p.LocalDir(bulkDir), p.Filename(".tar.zst"))
+
+	f, err := os.Open(archive)
+	if err != nil {
+		panic("couldn't open archive: " + archive)
+	}
+	zr, err := zstd.NewReader(f)
+	if err != nil {
+		panic(err)
+	}
+	ar := tar.NewReader(zr)
+	for {
+		hdr, err := ar.Next()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		filename := filepath.Join(p.LocalDir(bulkDir), strings.TrimPrefix(hdr.Name, p.Name))
+		if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+			panic(err)
+		}
+		g, err := os.Create(filename)
+		if err != nil {
+			panic(err)
+		}
+		if _, err := io.Copy(g, ar); err != nil {
+			panic(err)
+		}
+	}
+	zr.Close()
+	f.Close()
+	if err := os.Remove(archive); err != nil {
+		panic(err)
 	}
 }

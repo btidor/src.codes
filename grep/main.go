@@ -17,7 +17,7 @@ var (
 
 var commit string = "dev"
 
-var configPath, dataDir, certPath, keyPath string
+var configPath, bulkDir, fastDir, certPath, keyPath string
 var distros = make(map[string]bool)
 
 func main() {
@@ -31,8 +31,12 @@ func main() {
 			"Path to configuration file",
 		)
 		fs.StringVar(
-			&dataDir, "data", "/data",
-			"Path to data directory",
+			&bulkDir, "slowData", "/data",
+			"Path to directory for bulk data (HDD)",
+		)
+		fs.StringVar(
+			&fastDir, "fastData", "/data",
+			"Path to directory for fast data (SSD)",
 		)
 	}
 	serveCmd.StringVar(
