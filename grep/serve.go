@@ -106,8 +106,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sources := strings.TrimSuffix(name, ".csi") + ".tar.zst"
 		f, err := os.Open(sources)
 		if err != nil {
-			continue // TODO: change to panic
-			// panic("couldn't open archive: " + sources)
+			panic("couldn't open archive: " + sources)
 		}
 		zr, err := zstd.NewReader(f)
 		if err != nil {
