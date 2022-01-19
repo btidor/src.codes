@@ -21,11 +21,13 @@ export default class GrepClient {
             .get(url, { responseType: 'stream' })
             .then(res => {
                 let line = "";
+                let decoder = new TextDecoder();
                 res.data.on('data', (chunk: ArrayBuffer) => {
+                    let start = 0;
                     let arr = new Uint8Array(chunk);
                     for (let i = 0; i < arr.length; i++) {
-                        line += String.fromCharCode(arr[i]);
                         if (arr[i] == 10) {
+                            line += decoder.decode(arr.slice(start, i));
                             if (line == "") {
                                 // Stop at the first blank line, since there's
                                 // debugging information in a footer which we
@@ -35,7 +37,13 @@ export default class GrepClient {
                             const result = this.processResult(re, line);
                             progress.report(result);
                             line = "";
+                            start = i + 1;
                         }
+                    }
+                    if (start < arr.length) {
+                        // Unless the buffer ends with a newline, send the
+                        // trailing end to decoder as a partial input.
+                        line += decoder.decode(arr.slice(start), { stream: true });
                     }
                 });
                 return new Promise((resolve, _) => {
