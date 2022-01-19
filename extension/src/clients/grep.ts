@@ -19,7 +19,7 @@ export default class GrepClient {
         return axios
             .get(url, { responseType: 'text' })
             .then(res => {
-                const matches: vscode.TextSearchResult[] = [];
+                const results: vscode.TextSearchResult[] = [];
                 for (const line of res.data.split("\n")) {
                     if (!line) {
                         // Stop at the first blank line, since there's debugging
@@ -28,21 +28,30 @@ export default class GrepClient {
                     }
                     const parts = line.split(":");
                     let uri = constructUri(this.config, parts[0]);
-                    let lineNo = parseInt(parts[1]);
-                    // TODO: improve specificity within line
-                    let ranges = new vscode.Range(lineNo, 0, lineNo, 1);
-                    let text = parts.slice(2).join(":");
-                    matches.push({
+                    // Server 1-indexes lines, we 0-index
+                    let lineNo = parseInt(parts[1]) - 1;
+                    let text = parts.slice(2).join(":"); // TODO: strip whitespace
+                    let ranges: vscode.Range[] = [];
+                    let matches: vscode.Range[] = [];
+                    let re = new RegExp(q, "g");
+                    for (const match of text.matchAll(re)) {
+                        // TODO: support multi-line matching
+                        ranges.push(new vscode.Range(
+                            lineNo, match.index,
+                            lineNo, match.index + match[0].length,
+                        ));
+                        matches.push(new vscode.Range(
+                            0, match.index,
+                            0, match.index + match[0].length,
+                        ));
+                    }
+                    results.push({
                         uri,
                         ranges,
-                        preview: {
-                            // TODO: highlight correct range within text,
-                            // consider dropping leading whitespace
-                            text, matches: new vscode.Range(0, 0, 0, 1),
-                        },
+                        preview: { text, matches },
                     });
                 }
-                return matches;
+                return results;
             });
 
     }
