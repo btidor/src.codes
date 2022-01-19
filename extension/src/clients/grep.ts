@@ -28,12 +28,17 @@ export default class GrepClient {
                     }
                     const parts = line.split(":");
                     let uri = constructUri(this.config, parts[0]);
+                    let lineNo = parseInt(parts[1]);
+                    // TODO: improve specificity within line
+                    let ranges = new vscode.Range(lineNo, 0, lineNo, 1);
+                    let text = parts.slice(2).join(":");
                     matches.push({
                         uri,
-                        ranges: new vscode.Range(0, 0, 0, 1), // TODO
+                        ranges,
                         preview: {
-                            text: 'TODO',
-                            matches: new vscode.Range(0, 0, 0, 1),
+                            // TODO: highlight correct range within text,
+                            // consider dropping leading whitespace
+                            text, matches: new vscode.Range(0, 0, 0, 1),
                         },
                     });
                 }
