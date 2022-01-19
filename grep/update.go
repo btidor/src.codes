@@ -119,10 +119,12 @@ func (p Package) Decompress() {
 	if err != nil {
 		panic("couldn't open archive: " + archive)
 	}
+	defer f.Close()
 	zr, err := zstd.NewReader(f)
 	if err != nil {
 		panic(err)
 	}
+	defer zr.Close()
 	ar := tar.NewReader(zr)
 	for {
 		hdr, err := ar.Next()
@@ -142,10 +144,8 @@ func (p Package) Decompress() {
 		if _, err := io.Copy(g, ar); err != nil {
 			panic(err)
 		}
-	}
-	zr.Close()
-	f.Close()
-	if err := os.Remove(archive); err != nil {
-		panic(err)
+		if err := g.Close(); err != nil {
+			panic(err)
+		}
 	}
 }

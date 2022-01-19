@@ -10,4 +10,6 @@ export COMMIT="$(git log --pretty=format:%h -n 1)"
     -ldflags "-X main.commit=$COMMIT" \
     ./grep serve \
     -cert /data/tls/certificate.pem \
-    -key /data/tls/key.pem
+    -key /data/tls/key.pem \
+    -fastData /fast \
+    -bulkData /bulk

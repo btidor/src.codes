@@ -6,7 +6,8 @@ TAG="src-codes/grep"
 NAME="src-grep"
 HOSTNAME="grep.src.codes"
 IP6="2605:6400:5ba2::c0de:2"
-DATADIR="/data/grep"
+BULKDIR="/data/grep"
+FASTDIR="/var/grep"
 SRCDIR="/var/src.codes"
 
 docker build --tag "$TAG" --pull "$(dirname $0)"
@@ -17,7 +18,8 @@ if [[ "$STALE" ]]; then
 fi
 
 docker run -dit \
-    --mount "type=bind,source=$DATADIR,target=/data" \
+    --mount "type=bind,source=$BULKDIR,target=/bulk" \
+    --mount "type=bind,source=$FASTDIR,target=/fast" \
     --mount "type=bind,source=$SRCDIR,target=/var/src.codes,readonly" \
     --name "$NAME" \
     --hostname "$HOSTNAME" \

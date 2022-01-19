@@ -31,7 +31,7 @@ func main() {
 			"Path to configuration file",
 		)
 		fs.StringVar(
-			&bulkDir, "slowData", "/data",
+			&bulkDir, "bulkData", "/data",
 			"Path to directory for bulk data (HDD)",
 		)
 		fs.StringVar(
