@@ -12,7 +12,8 @@
     "Other"
   ],
   "enabledApiProposals": [
-    "fileSearchProvider"
+    "fileSearchProvider",
+    "textSearchProvider"
   ],
   "activationEvents": [
     "onFileSystem:srccodes",

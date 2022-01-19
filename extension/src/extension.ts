@@ -10,6 +10,8 @@ import SymbolsClient from './clients/symbols';
 import FzfClient from './clients/fzf';
 import GlobalSymbolProvider from './providers/globalSymbol';
 import LocalSymbolProvider from './providers/localSymbol';
+import TextSearchProvider from './providers/textSearch';
+import GrepClient from './clients/grep';
 
 export function activate(context: vscode.ExtensionContext) {
 	const config = {
@@ -20,11 +22,13 @@ export function activate(context: vscode.ExtensionContext) {
 		ls: vscode.Uri.parse('https://ls.src.codes'),
 		cat: vscode.Uri.parse('https://cat.src.codes'),
 		fzf: vscode.Uri.parse('https://fzf.src.codes'),
+		grep: vscode.Uri.parse('https://grep.src.codes'),
 	};
 
 	const packageClient = new PackageClient(config);
 	const fileClient = new FileClient(config);
 	const fzfClient = new FzfClient(config);
+	const grepClient = new GrepClient(config);
 	const symbolsClient = new SymbolsClient(config);
 
 	context.subscriptions.push(
@@ -33,6 +37,9 @@ export function activate(context: vscode.ExtensionContext) {
 		),
 		vscode.workspace.registerFileSearchProvider(
 			config.scheme, new FileSearchProvider(fzfClient),
+		),
+		vscode.workspace.registerTextSearchProvider(
+			config.scheme, new TextSearchProvider(grepClient),
 		),
 		vscode.languages.registerDefinitionProvider(
 			{ scheme: config.scheme }, new LocalDefinitionProvider(packageClient, symbolsClient),

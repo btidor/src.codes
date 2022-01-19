@@ -8,6 +8,7 @@ export type Config = {
     ls: vscode.Uri,
     cat: vscode.Uri,
     fzf: vscode.Uri,
+    grep: vscode.Uri,
 };
 
 export type Package = {
