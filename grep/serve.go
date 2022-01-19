@@ -90,6 +90,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	grep.Regexp = re
+	grep.N = true // line numbers on
 	var iquery = index.RegexpQuery(re.Syntax)
 	for _, name := range idxlist {
 		ix := index.Open(name)
