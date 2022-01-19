@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -26,15 +27,19 @@ func updateDistro(distro string) {
 	var wg sync.WaitGroup
 	jobs := make(chan Package)
 
+	var mu sync.Mutex
+	var errored bool // protected by `mu`
+
 	for w := 0; w < downloadThreads; w++ {
 		wg.Add(1)
 		go func(w int, jobs <-chan Package, wg *sync.WaitGroup) {
 			defer wg.Done()
 			for pkg := range jobs {
-				fmt.Printf("[%s] Downloading codesearch index\n", pkg.Slug())
-				pkg.Download(fastDir, ".csi")
-				pkg.Download(bulkDir, ".tar.zst")
-				pkg.Decompress()
+				if pkg.Update() {
+					mu.Lock()
+					errored = true
+					mu.Unlock()
+				}
 			}
 		}(w, jobs, &wg)
 	}
@@ -46,6 +51,9 @@ func updateDistro(distro string) {
 	wg.Wait()
 
 	// TODO: clean up excess files
+	if errored {
+		os.Exit(1)
+	}
 }
 
 func listPackages(distro string) []Package {
@@ -97,6 +105,27 @@ func (p Package) LocalDir(base string) string {
 	return filepath.Join(base, "grep", p.Distro, prefix, p.Name)
 }
 
+func (p Package) Update() (errored bool) {
+	defer func() {
+		if err := recover(); err != nil {
+			// If we fail when processing one distro, log the error and
+			// continue.
+			fmt.Printf("\n***** PANIC in package %s/%s *****\n", p.Distro, p.Name)
+			fmt.Println(err)
+			fmt.Println()
+			fmt.Println(string(debug.Stack()))
+			fmt.Println("*****************")
+		}
+		errored = true
+	}()
+
+	fmt.Printf("[%s] Downloading codesearch index\n", p.Slug())
+	p.Download(fastDir, ".csi")
+	p.Download(bulkDir, ".tar.zst")
+	p.Decompress()
+	return
+}
+
 func (p Package) Download(base, ext string) {
 	if err := os.MkdirAll(p.LocalDir(base), 0755); err != nil {
 		panic(err)
@@ -137,14 +166,14 @@ func (p Package) Decompress() {
 		if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
 			panic(err)
 		}
-		g, err := os.Create(filename)
+		out, err := os.Create(filename)
 		if err != nil {
 			panic(err)
 		}
-		if _, err := io.Copy(g, ar); err != nil {
+		if _, err := io.Copy(out, ar); err != nil {
 			panic(err)
 		}
-		if err := g.Close(); err != nil {
+		if err := out.Close(); err != nil {
 			panic(err)
 		}
 	}
