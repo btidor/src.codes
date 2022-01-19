@@ -9,12 +9,18 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
     }
 
     provideTextSearchResults(query: vscode.TextSearchQuery, options: vscode.TextSearchOptions, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TextSearchComplete> {
-        // TODO: support query options
-        return this.grepClient.query(query.pattern).then(results => {
-            for (const result of results) {
-                // TODO: report progress incrementally
-                progress.report(result);
-            }
+        let pattern = query.pattern;
+        if (!query.isRegExp) {
+            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping
+            pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        let flags = "";
+        if (!query.isCaseSensitive) flags += "i";
+        if (query.isMultiline) flags += "ms"; // TODO: is this right
+        if (query.isWordMatch) pattern = '\\b' + pattern + '\\b';
+
+        return this.grepClient.query(pattern, flags, progress).then(_ => {
             return {}; // TODO
         });
     }
