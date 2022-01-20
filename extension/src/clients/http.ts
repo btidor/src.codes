@@ -2,10 +2,10 @@ import axios from 'axios';
 
 export default class HTTPClient {
     static streamingFetch(url: string, callback: (line: string) => void): Promise<void> {
-        if (typeof process !== 'undefined') {
-            return this.streamingFetchNode(url, callback);
-        } else {
+        if (typeof process === 'undefined' || process.title === 'browser') {
             return this.streamingFetchBrowser(url, callback);
+        } else {
+            return this.streamingFetchNode(url, callback);
         }
     }
 
