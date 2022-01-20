@@ -51,8 +51,15 @@ type grepHandler struct {
 }
 
 func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Cache-Control", "no-cache")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Cache-Control", "no-cache")
+	w.Header().Add("Content-Security-Policy", "default-src 'none';")
+
+	// Workaround: this should be text/plain, but it's the only way I've found
+	// to make the Fetch API actually stream responses back. (I think they're
+	// being blocked by CORB?) See:
+	// https://www.reddit.com/r/webdev/comments/bwrpjl/how_to_stop_browser_from_buffering_a_streaming/
+	w.Header().Add("Content-Type", "text/event-stream; charset=utf-8")
 
 	var parts = strings.Split(r.URL.Path, "/")
 	if len(parts) != 2 {
