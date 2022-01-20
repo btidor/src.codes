@@ -52,6 +52,7 @@ type grepHandler struct {
 
 func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "no-cache")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 
 	var parts = strings.Split(r.URL.Path, "/")
 	if len(parts) != 2 {
