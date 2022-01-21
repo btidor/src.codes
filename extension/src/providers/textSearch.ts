@@ -9,6 +9,8 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
     }
 
     provideTextSearchResults(query: vscode.TextSearchQuery, options: vscode.TextSearchOptions, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TextSearchComplete> {
+        // TODO: support includes, excludes & ignores
+        // TODO: support beforeContext & afterContext
         let pattern = query.pattern;
         if (!query.isRegExp) {
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping
@@ -20,6 +22,7 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
         if (query.isMultiline) flags += "ms"; // TODO: is this right
         if (query.isWordMatch) pattern = '\\b' + pattern + '\\b';
 
+        // TODO: support cancellation
         return this.grepClient.query(pattern, flags, progress).then(_ => {
             return {}; // TODO
         });

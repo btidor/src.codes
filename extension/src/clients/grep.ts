@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import axios from 'axios';
 
 import { Config, constructUri } from '../types/common';
 import HTTPClient from './http';
