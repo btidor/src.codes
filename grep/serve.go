@@ -91,8 +91,17 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var flags = "m"
+	var rawFlags = r.URL.Query().Get("flags")
+	if strings.Contains(rawFlags, "i") {
+		flags += "i"
+	}
+	if strings.Contains(rawFlags, "s") {
+		flags += "s"
+	}
+
 	var grep = regexp.Grep{Stdout: w, Stderr: w}
-	re, err := regexp.Compile("(?m)" + query)
+	re, err := regexp.Compile("(?" + flags + ")" + query)
 	if err != nil {
 		internal.HTTPError(w, r, 400)
 		return

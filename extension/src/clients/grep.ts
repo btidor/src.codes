@@ -11,7 +11,7 @@ export default class GrepClient {
     }
 
     query(q: string, flags: string, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
-        const re = new RegExp(q, "g"); // TODO: adjust flags
+        const re = new RegExp(q, "g" + flags);
         return HTTPClient.streamingFetch(
             this.config.grep, this.config.distribution, { q, flags },
             line => {
