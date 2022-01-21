@@ -56,12 +56,6 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "no-cache")
 	w.Header().Add("Content-Security-Policy", "default-src 'none';")
 
-	// Workaround: this should be text/plain, but it's the only way I've found
-	// to make the Fetch API actually stream responses back. (I think they're
-	// being blocked by CORB?) See:
-	// https://www.reddit.com/r/webdev/comments/bwrpjl/how_to_stop_browser_from_buffering_a_streaming/
-	w.Header().Add("Content-Type", "text/event-stream; charset=utf-8")
-
 	var parts = strings.Split(r.URL.Path, "/")
 	if len(parts) != 2 {
 		// Invalid path
@@ -85,6 +79,16 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !strings.Contains(r.Header.Get("User-Agent"), "Firefox/") ||
+		r.Header.Get("Sec-Fetch-Mode") != "navigate" {
+		// Workaround: this should be text/plain, but it's the only way I've found
+		// to make the Fetch API actually stream responses back. (I think they're
+		// being blocked by CORB?) See:
+		// https://www.reddit.com/r/webdev/comments/bwrpjl/how_to_stop_browser_from_buffering_a_streaming/
+		w.Header().Add("Content-Type", "text/event-stream; charset=utf-8")
+	}
+
+	var start = time.Now()
 	var query = r.URL.Query().Get("q")
 	if query == "" {
 		// Missing query
@@ -153,4 +157,11 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			grep.Reader(f, relative)
 		}
 	}
+
+	fmt.Fprintf(w, "\nQuery: %q\n", query)
+	fmt.Fprintf(w, "Flags: %q\n", flags)
+	fmt.Fprintf(w, "Includes: %v\n", includes)
+	fmt.Fprintf(w, "Excludes: %v\n", excludes)
+	// TODO: include result count
+	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
 }
