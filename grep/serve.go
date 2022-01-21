@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bmatcuk/doublestar"
 	"github.com/btidor/src.codes/internal"
 	"github.com/google/codesearch/index"
 	"github.com/google/codesearch/regexp"
@@ -91,6 +92,9 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var includes = r.URL.Query()["include"]
+	var excludes = r.URL.Query()["exclude"]
+
 	var flags = "m"
 	var rawFlags = r.URL.Query().Get("flags")
 	if strings.Contains(rawFlags, "i") {
@@ -111,8 +115,32 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var iquery = index.RegexpQuery(re.Syntax)
 	for _, name := range idxlist {
 		ix := index.Open(name)
+	perfile:
 		for _, fileid := range ix.PostingQuery(iquery) {
 			relative := ix.Name(fileid)
+
+			// Handle include and exclude options
+			if len(includes) > 0 {
+				included := false
+				for _, include := range includes {
+					if ok, _ := doublestar.Match(include, relative); ok {
+						included = true
+					} else if ok, _ = doublestar.Match(include+"/**", relative); ok {
+						included = true
+					}
+				}
+				if !included {
+					continue perfile
+				}
+			}
+			for _, exclude := range excludes {
+				if ok, _ := doublestar.Match(exclude, relative); ok {
+					continue perfile
+				} else if ok, _ = doublestar.Match(exclude+"/**", relative); ok {
+					continue perfile
+				}
+			}
+
 			prefix := string(relative[0])
 			if strings.HasPrefix(relative, "lib") {
 				prefix = relative[0:4]
