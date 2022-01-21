@@ -108,15 +108,15 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		flags += "s"
 	}
 
-	var grep = regexp.Grep{Stdout: w, Stderr: w}
 	re, err := regexp.Compile("(?" + flags + ")" + query)
 	if err != nil {
 		internal.HTTPError(w, r, 400)
 		return
 	}
-	grep.Regexp = re
-	grep.N = true // line numbers on
+	var grep = Grep{Regexp: re, Stdout: w}
 	var iquery = index.RegexpQuery(re.Syntax)
+	var count int
+	var errors []error
 	for _, name := range idxlist {
 		ix := index.Open(name)
 	perfile:
@@ -145,6 +145,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			// Find source file
 			prefix := string(relative[0])
 			if strings.HasPrefix(relative, "lib") {
 				prefix = relative[0:4]
@@ -152,16 +153,28 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			absolute := filepath.Join(bulkDir, "grep", distro, prefix, relative)
 			f, err := os.Open(absolute)
 			if err != nil {
-				panic(err)
+				errors = append(errors, err)
+				continue
 			}
-			grep.Reader(f, relative)
+
+			// Search source file to confirm matches
+			n, err := grep.Reader(f, relative)
+			count += n
+			if err != nil {
+				errors = append(errors, err)
+			}
 		}
 	}
 
 	fmt.Fprintf(w, "\nQuery: %q\n", query)
-	fmt.Fprintf(w, "Flags: %q\n", flags)
-	fmt.Fprintf(w, "Includes: %v\n", includes)
-	fmt.Fprintf(w, "Excludes: %v\n", excludes)
-	// TODO: include result count
+	fmt.Fprintf(w, "Flags: %q  Includes: %v  Excludes: %v\n", flags, includes, excludes)
+	fmt.Fprintf(w, "Results: %d\n", count)
 	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
+	if len(errors) > 0 {
+		fmt.Fprintf(w, "Errors:")
+		for _, err := range errors {
+			fmt.Fprintf(w, " %#v", err)
+		}
+		fmt.Fprintf(w, "\n")
+	}
 }
