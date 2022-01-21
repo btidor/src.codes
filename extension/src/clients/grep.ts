@@ -10,10 +10,18 @@ export default class GrepClient {
         this.config = config;
     }
 
-    query(q: string, flags: string, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
+    query(q: string, flags: string, includes: string[], excludes: string[], progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
         const re = new RegExp(q, "g" + flags);
+        let params = new URLSearchParams({ q, flags });
+        for (const i of includes) {
+            params.append("include", i);
+        }
+        for (const x of excludes) {
+            params.append("exclude", x);
+        }
+
         return HTTPClient.streamingFetch(
-            this.config.grep, this.config.distribution, { q, flags },
+            this.config.grep, this.config.distribution, params.toString(),
             line => {
                 const parts = line.split(":");
                 let uri = constructUri(this.config, parts[0]);

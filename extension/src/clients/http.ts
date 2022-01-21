@@ -3,11 +3,10 @@ import * as vscode from 'vscode';
 import axios from 'axios';
 
 export default class HTTPClient {
-    static streamingFetch(base: vscode.Uri, path: string, params: Record<string, string>, callback: (line: string) => void, token: vscode.CancellationToken): Promise<void> {
+    static streamingFetch(base: vscode.Uri, path: string, params: string, callback: (line: string) => void, token: vscode.CancellationToken): Promise<void> {
         // vscode.Uri doesn't quite get escaping right, so do it manually
-        const url = vscode.Uri.joinPath(base, path).toString(false) +
-            '?' + (new URLSearchParams(params)).toString();
-
+        const url = vscode.Uri.joinPath(base, path).toString(false) + '?' + params;
+        console.warn(url);
         let line = '';
         let decoder = new TextDecoder('utf-8');
         const handleChunk = (chunk: ArrayBuffer) => {

@@ -22,8 +22,10 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
         if (query.isMultiline) flags += "ms"; // TODO: is this right
         if (query.isWordMatch) pattern = '\\b' + pattern + '\\b';
 
-        return this.grepClient.query(pattern, flags, progress, token).then(_ => {
-            return {}; // TODO
+        return this.grepClient.query(
+            pattern, flags, options.includes, options.excludes, progress, token,
+        ).then(_ => {
+            return { limitHit: false };
         });
     }
 }
