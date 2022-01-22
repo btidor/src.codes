@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-
-	"github.com/google/codesearch/regexp"
+	"regexp"
 )
 
 // Includes code borrowed from rsc's codesearch @
 // github.com/google/codesearch@8ba29bd:regexp/match.go
 
 type Grep struct {
-	Regexp *regexp.Regexp
-	Stdout io.Writer
+	Context int
+	Regexp  *regexp.Regexp
+	Stdout  io.Writer
 
 	buf []byte
 }
@@ -38,11 +38,9 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 		g.buf = make([]byte, 1<<20)
 	}
 	var (
-		buf       = g.buf[:0]
-		lineno    = 1
-		count     = 0
-		beginText = true
-		endText   = false
+		buf    = g.buf[:0]
+		lineno = 1
+		count  = 0
 	)
 	for {
 		n, err := io.ReadFull(r, buf[len(buf):cap(buf)])
@@ -53,36 +51,33 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 			if i >= 0 {
 				end = i + 1
 			}
-		} else {
-			endText = true
 		}
 		chunkStart := 0
 		for chunkStart < end {
-			m1 := g.Regexp.Match(buf[chunkStart:end], beginText, endText) + chunkStart
-			beginText = false
-			if m1 < chunkStart {
+			// Note: we require the `m` flag to be set so ^ and $ may always
+			// match the start/end of a line. This is because we can't inform
+			// the regexp engine where the start and end of the file are.
+			pair := g.Regexp.FindIndex(buf[chunkStart:end])
+			if pair == nil {
 				break
 			}
-			lineStart := bytes.LastIndex(buf[chunkStart:m1], nl) + 1 + chunkStart
-			lineEnd := m1 + 1
-			if lineEnd > end {
-				lineEnd = end
+			matchStart := pair[0] + chunkStart
+			matchEnd := pair[1] + chunkStart
+			lineStart := bytes.LastIndex(buf[chunkStart:matchStart], nl) + 1 + chunkStart
+			lineEnd := bytes.Index(buf[matchEnd:end], nl) + 1 + matchEnd
+			if lineEnd < 0 {
+				panic("could not find end of line")
 			}
 			lineno += countNL(buf[chunkStart:lineStart])
-			line := buf[lineStart:lineEnd]
-			nl := ""
-			if len(line) == 0 || line[len(line)-1] != '\n' {
-				nl = "\n"
-			}
 			count++
-			fmt.Fprintf(g.Stdout, "%s:%d:%s%s", filename, lineno, line, nl)
+			fmt.Fprintf(g.Stdout, "%s:%d %q\n", filename, lineno, buf[lineStart:lineEnd])
 			lineno++
 			chunkStart = lineEnd
 		}
 		if err == nil {
 			lineno += countNL(buf[chunkStart:end])
 		}
-		n = copy(buf, buf[end:])
+		n = copy(buf, buf[end:]) // TODO: problem!
 		buf = buf[:n]
 		if len(buf) == 0 && err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {

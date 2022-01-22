@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"regexp/syntax"
 	"strings"
 	"time"
 
 	"github.com/bmatcuk/doublestar"
 	"github.com/btidor/src.codes/internal"
 	"github.com/google/codesearch/index"
-	"github.com/google/codesearch/regexp"
 )
 
 func serve() {
@@ -99,22 +100,38 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var includes = r.URL.Query()["include"]
 	var excludes = r.URL.Query()["exclude"]
 
-	// Always allow ^ and $ to match start/end of line
-	var flags = "m"
+	// Set up regexp flags. Compile(), and also Javascript, default to Perl
+	// matching options, so we should start with that flag. Then add `m` to
+	// always allow ^ and $ to match the start/end of the line.
+	var intFlags = syntax.Perl & ^syntax.OneLine
+	var charFlags = "m"
 
 	// Turn on case-insensitivity if requested
 	var rawFlags = r.URL.Query().Get("flags")
 	if strings.Contains(rawFlags, "i") {
-		flags += "i"
+		intFlags |= syntax.FoldCase
+		charFlags += "i"
+	}
+	if strings.Contains(rawFlags, "s") {
+		intFlags |= syntax.DotNL
+		charFlags += "s"
 	}
 
-	re, err := regexp.Compile("(?" + flags + ")" + query)
+	rsyntax, err := syntax.Parse(query, intFlags)
 	if err != nil {
 		internal.HTTPError(w, r, 400)
 		return
 	}
+	rsyntax = rsyntax.Simplify()
+
+	re, err := regexp.Compile("(?" + charFlags + ")" + rsyntax.String())
+	if err != nil {
+		internal.HTTPError(w, r, 400)
+		return
+	}
+
 	var grep = Grep{Regexp: re, Stdout: w}
-	var iquery = index.RegexpQuery(re.Syntax)
+	var iquery = index.RegexpQuery(rsyntax)
 	var count int
 	var errors []error
 	for _, name := range idxlist {
@@ -167,7 +184,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "\nQuery: %q\n", query)
-	fmt.Fprintf(w, "Flags: %q  Includes: %v  Excludes: %v\n", flags, includes, excludes)
+	fmt.Fprintf(w, "Flags: %q  Includes: %v  Excludes: %v\n", charFlags, includes, excludes)
 	fmt.Fprintf(w, "Results: %d\n", count)
 	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
 	if len(errors) > 0 {
