@@ -99,13 +99,13 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var includes = r.URL.Query()["include"]
 	var excludes = r.URL.Query()["exclude"]
 
+	// Always allow ^ and $ to match start/end of line
 	var flags = "m"
+
+	// Turn on case-insensitivity if requested
 	var rawFlags = r.URL.Query().Get("flags")
 	if strings.Contains(rawFlags, "i") {
 		flags += "i"
-	}
-	if strings.Contains(rawFlags, "s") {
-		flags += "s"
 	}
 
 	re, err := regexp.Compile("(?" + flags + ")" + query)
