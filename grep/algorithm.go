@@ -15,8 +15,7 @@ type Grep struct {
 	Regexp *regexp.Regexp
 	Stdout io.Writer
 
-	match bool
-	buf   []byte
+	buf []byte
 }
 
 var nl = []byte{'\n'}
@@ -34,7 +33,7 @@ func countNL(b []byte) int {
 	return n
 }
 
-func (g *Grep) Reader(r io.Reader, name string) (int, error) {
+func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 	if g.buf == nil {
 		g.buf = make([]byte, 1<<20)
 	}
@@ -42,7 +41,6 @@ func (g *Grep) Reader(r io.Reader, name string) (int, error) {
 		buf       = g.buf[:0]
 		lineno    = 1
 		count     = 0
-		prefix    = name + ":"
 		beginText = true
 		endText   = false
 	)
@@ -65,7 +63,6 @@ func (g *Grep) Reader(r io.Reader, name string) (int, error) {
 			if m1 < chunkStart {
 				break
 			}
-			g.match = true
 			lineStart := bytes.LastIndex(buf[chunkStart:m1], nl) + 1 + chunkStart
 			lineEnd := m1 + 1
 			if lineEnd > end {
@@ -78,7 +75,7 @@ func (g *Grep) Reader(r io.Reader, name string) (int, error) {
 				nl = "\n"
 			}
 			count++
-			fmt.Fprintf(g.Stdout, "%s%d:%s%s", prefix, lineno, line, nl)
+			fmt.Fprintf(g.Stdout, "%s:%d:%s%s", filename, lineno, line, nl)
 			lineno++
 			chunkStart = lineEnd
 		}
