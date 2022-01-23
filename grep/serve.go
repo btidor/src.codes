@@ -7,12 +7,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"regexp/syntax"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bmatcuk/doublestar"
 	"github.com/btidor/src.codes/internal"
 	"github.com/google/codesearch/index"
+)
+
+const (
+	maxFileSize = (1 << 20)
+	maxContext  = 10
+	nl          = '\n'
 )
 
 func serve() {
@@ -100,6 +107,19 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var includes = r.URL.Query()["include"]
 	var excludes = r.URL.Query()["exclude"]
 
+	var context int
+	if c := r.URL.Query().Get("context"); c != "" {
+		if i, err := strconv.ParseInt(c, 10, 64); err == nil {
+			if i < 0 {
+				context = 0
+			} else if i > maxContext {
+				context = maxContext
+			} else {
+				context = int(i)
+			}
+		}
+	}
+
 	// Set up regexp flags. Compile(), and also Javascript, default to Perl
 	// matching options, so we should start with that flag. Then add `m` to
 	// always allow ^ and $ to match the start/end of the line.
@@ -130,7 +150,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var grep = Grep{Regexp: re, Stdout: w}
+	var grep = Grep{Context: context, Regexp: re, Stdout: w}
 	var iquery = index.RegexpQuery(rsyntax)
 	var count int
 	var errors []error
@@ -184,7 +204,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "\nQuery: %q\n", query)
-	fmt.Fprintf(w, "Flags: %q  Includes: %v  Excludes: %v\n", charFlags, includes, excludes)
+	fmt.Fprintf(w, "Flags: %q  Context: %d  Includes: %v  Excludes: %v\n",
+		charFlags, context, includes, excludes)
 	fmt.Fprintf(w, "Results: %d\n", count)
 	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
 	if len(errors) > 0 {
