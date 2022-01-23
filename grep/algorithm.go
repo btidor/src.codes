@@ -43,15 +43,24 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 		count  = 0
 	)
 	for {
+		// Read into end of buffer, up to capacity. buf[:end] is the range of
+		// data that will be searched this iteration of the loop.
 		n, err := io.ReadFull(r, buf[len(buf):cap(buf)])
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return count, err
+		}
 		buf = buf[:len(buf)+n]
 		end := len(buf)
 		if err == nil {
+			// Not yet at EOF, so limit buffer to last complete line
 			i := bytes.LastIndex(buf, nl)
 			if i >= 0 {
 				end = i + 1
 			}
 		}
+
+		// Search the buffer for non-overlapping matches. After each iteration,
+		// chunkStart is the index just past the end of the latest match.
 		chunkStart := 0
 		for chunkStart < end {
 			// Note: we require the `m` flag to be set so ^ and $ may always
@@ -66,24 +75,36 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 			lineStart := bytes.LastIndex(buf[chunkStart:matchStart], nl) + 1 + chunkStart
 			lineEnd := bytes.Index(buf[matchEnd:end], nl) + 1 + matchEnd
 			if lineEnd < 0 {
-				panic("could not find end of line")
+				// Can't find end of line: this can happen when we match the
+				// last line of a file that doesn't have a trailing newline.
+				lineEnd = end
 			}
 			lineno += countNL(buf[chunkStart:lineStart])
-			count++
 			fmt.Fprintf(g.Stdout, "%s:%d %q\n", filename, lineno, buf[lineStart:lineEnd])
-			lineno++
+			lineno += countNL(buf[lineStart:lineEnd])
 			chunkStart = lineEnd
+			count++
 		}
-		if err == nil {
-			lineno += countNL(buf[chunkStart:end])
+
+		// What if there's a valid match here, but it runs past the end of the
+		// buffer? We slide up the second half of the buffer and continue the
+		// search, so we'll find it on the next iteration. (Matches longer than
+		// 50% of the buffer capacity are not guaranteed to be found.) After
+		// this, buf[:len(buf)] is the unmatched remainder.
+		midpoint := cap(buf) / 2
+		if midpoint > end {
+			midpoint = end
 		}
-		n = copy(buf, buf[end:]) // TODO: problem!
+		pivot := bytes.Index(buf[midpoint:end], nl) + 1 + midpoint
+		if chunkStart < pivot {
+			lineno += countNL(buf[chunkStart:pivot])
+			chunkStart = pivot
+		}
+		lineno += countNL(buf[chunkStart:end])
+		n = copy(buf, buf[chunkStart:])
 		buf = buf[:n]
-		if len(buf) == 0 && err != nil {
-			if err != io.EOF && err != io.ErrUnexpectedEOF {
-				return count, err
-			}
-			break
+		if err != nil {
+			break // EOF
 		}
 	}
 	return count, nil
