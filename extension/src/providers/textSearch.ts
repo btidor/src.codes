@@ -20,10 +20,25 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
         if (query.isMultiline) flags += "s";
         if (query.isWordMatch) pattern = '\\b' + pattern + '\\b';
 
+
+        let messages: vscode.TextSearchCompleteMessage[] = [];
+
+        let context = 0;
+        if (options.beforeContext || options.afterContext) {
+            context = Math.max(options.beforeContext || 0, options.afterContext || 0);
+            if (context > 10) {
+                messages.push({
+                    text: "TODO: context too large",
+                    type: vscode.TextSearchCompleteMessageType.Warning,
+                });
+            }
+        }
+
+
         return this.grepClient.query(
-            pattern, flags, options.includes, options.excludes, progress, token,
+            pattern, flags, options.includes, options.excludes, context, progress, token,
         ).then(_ => {
-            return { limitHit: false };
+            return { limitHit: false, message: messages };
         });
     }
 }

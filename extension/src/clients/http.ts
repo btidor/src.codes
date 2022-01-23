@@ -17,6 +17,7 @@ export default class HTTPClient {
                     if (line == "") {
                         // Stop at the first blank line, since there's debugging
                         // information in a footer which we need to skip.
+                        // TODO: log errors + incomplete responses
                         break;
                     }
                     callback(line);
