@@ -17,16 +17,8 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
 
         let flags = "";
         if (!query.isCaseSensitive) flags += "i";
+        if (query.isMultiline) flags += "s";
         if (query.isWordMatch) pattern = '\\b' + pattern + '\\b';
-
-        if (query.isMultiline) {
-            return {
-                message: {
-                    text: "Multi-line search is not supported",
-                    type: vscode.TextSearchCompleteMessageType.Warning,
-                },
-            };
-        }
 
         return this.grepClient.query(
             pattern, flags, options.includes, options.excludes, progress, token,

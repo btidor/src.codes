@@ -11,7 +11,7 @@ export default class GrepClient {
     }
 
     query(q: string, flags: string, includes: string[], excludes: string[], progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
-        const re = new RegExp(q, "g" + flags);
+        const re = new RegExp(q, "gum" + flags);
         let params = new URLSearchParams({ q, flags });
         for (const i of includes) {
             params.append("include", i);
@@ -23,22 +23,28 @@ export default class GrepClient {
         return HTTPClient.streamingFetch(
             this.config.grep, this.config.distribution, params.toString(),
             line => {
-                const parts = line.split(":");
-                let uri = constructUri(this.config, parts[0]);
-                // The server 1-indexes lines, we 0-index...
-                let lineNo = parseInt(parts[1]) - 1;
-                let text = parts.slice(2).join(":");
+                const parts = line.split(" ");
+                const subparts = parts[0].split(":");
+                const uri = constructUri(this.config, subparts[0]);
+                const lineNo = parseInt(subparts[1]) - 1;
+                const text = JSON.parse(parts.slice(1).join(" "));
                 let ranges: vscode.Range[] = [];
                 let matches: vscode.Range[] = [];
                 for (const match of text.matchAll(re)) {
-                    // TODO: support multi-line matching
+                    // TODO: inconsistent greediness
+                    const sublines = match[0].split('\n');
+                    const last = sublines[sublines.length - 1];
+                    let lastCol = last.length;
+                    if (sublines.length == 1) {
+                        lastCol += match.index!;
+                    }
                     ranges.push(new vscode.Range(
                         lineNo, match.index!,
-                        lineNo, match.index! + match[0].length,
+                        lineNo + sublines.length - 1, lastCol,
                     ));
                     matches.push(new vscode.Range(
                         0, match.index!,
-                        0, match.index! + match[0].length,
+                        sublines.length - 1, lastCol,
                     ));
                 }
                 progress.report({
