@@ -22,6 +22,10 @@ export default class GrepClient {
             params.append("context", context.toString());
         }
 
+        let currentFile: vscode.Uri | null = null;
+        let contextLines = new Map();
+        let matchLines = new Set();
+
         return HTTPClient.streamingFetch(
             this.config.grep, this.config.distribution, params.toString(),
             line => {
@@ -36,14 +40,23 @@ export default class GrepClient {
                 const startLine = contextStart + beforeContext;
                 const endLine = contextStart + lines.length - afterContext - 1;
 
-                // Report context (lines before and after match). Line numbers
+                // Flush context lines when we reach the end of a file.
+                if (uri.toString() != currentFile?.toString()) {
+                    for (const [lineNumber, text] of contextLines) {
+                        if (matchLines.has(lineNumber)) continue;
+                        progress.report({ uri: currentFile!, text, lineNumber });
+                    }
+                    currentFile = uri;
+                    contextLines.clear();
+                    matchLines.clear();
+                }
+
+                // Queue up context (lines before and after match). Line numbers
                 // are 1-indexed.
                 for (const [i, line] of lines.entries()) {
                     const lineNumber = contextStart + i;
                     if (lineNumber < startLine || lineNumber > endLine) {
-                        progress.report({
-                            uri, text: line, lineNumber: lineNumber,
-                        });
+                        contextLines.set(lineNumber, line);
                     }
                 }
 
@@ -63,6 +76,19 @@ export default class GrepClient {
                         )],
                     },
                 });
-            }, token);
+
+                // Any lines reported as part of a match must be *removed* from
+                // the context, otherwise they'll be duplicated in the output.
+                for (let i = startLine; i <= endLine; i++) {
+                    matchLines.add(i);
+                }
+            }, token).then(() => {
+                if (currentFile) {
+                    for (const [lineNumber, text] of contextLines) {
+                        if (matchLines.has(lineNumber)) continue;
+                        progress.report({ uri: currentFile!, text, lineNumber });
+                    }
+                }
+            });
     }
 }
