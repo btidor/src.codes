@@ -23,7 +23,7 @@ const (
 )
 
 func serve() {
-	var indexes = make(map[string][]string)
+	var indexes = make(map[string][]*index.Index)
 	for distro := range distros {
 		matches, err := filepath.Glob(
 			filepath.Join(fastDir, "grep", distro, "*", "*", "*.csi"),
@@ -34,7 +34,9 @@ func serve() {
 		if len(matches) < 1 {
 			panic("no indexes found for distro " + distro)
 		}
-		indexes[distro] = matches
+		for _, filename := range matches {
+			indexes[distro] = append(indexes[distro], index.Open(filename))
+		}
 	}
 
 	var server = &http.Server{
@@ -56,7 +58,7 @@ func serve() {
 }
 
 type grepHandler struct {
-	indexes map[string][]string
+	indexes map[string][]*index.Index
 }
 
 func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +82,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "User-agent: *\nDisallow: /\n")
 		return
 	}
-	idxlist, ok := g.indexes[distro]
+	ixlist, ok := g.indexes[distro]
 	if !ok {
 		// Unknown distro
 		internal.HTTPError(w, r, 404)
@@ -154,8 +156,7 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var iquery = index.RegexpQuery(rsyntax)
 	var count int
 	var errors []error
-	for _, name := range idxlist {
-		ix := index.Open(name)
+	for _, ix := range ixlist {
 	perfile:
 		for _, fileid := range ix.PostingQuery(iquery) {
 			relative := ix.Name(fileid)
