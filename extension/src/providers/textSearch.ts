@@ -28,7 +28,7 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
             context = Math.max(options.beforeContext || 0, options.afterContext || 0);
             if (context > 10) {
                 messages.push({
-                    text: "TODO: context too large",
+                    text: "Maximum context is 10 lines",
                     type: vscode.TextSearchCompleteMessageType.Warning,
                 });
             }

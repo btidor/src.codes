@@ -11,7 +11,6 @@ export default class GrepClient {
     }
 
     query(q: string, flags: string, includes: string[], excludes: string[], context: number, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
-        const re = new RegExp(q, "gum" + flags);
         let params = new URLSearchParams({ q, flags });
         for (const i of includes) {
             params.append("include", i);
@@ -27,69 +26,43 @@ export default class GrepClient {
             this.config.grep, this.config.distribution, params.toString(),
             line => {
                 const parts = line.split(" ");
-                const subparts = parts[0].split(":");
-                const uri = constructUri(this.config, subparts[0]);
-                const text = JSON.parse(parts.slice(1).join(" "));
-                let lineNo = parseInt(subparts[1]);
+                const uri = constructUri(this.config, parts[0]);
+                const contextStart = parseInt(parts[1]);
+                const beforeContext = parseInt(parts[2]);
+                const afterContext = parseInt(parts[3]);
+                const startCol = parseInt(parts[4]);
+                const endCol = parseInt(parts[5]);
+                const lines = JSON.parse(parts.slice(6).join(" ")).split('\n');
+                const startLine = contextStart + beforeContext;
+                const endLine = contextStart + lines.length - afterContext - 1;
 
-                // TODO: inconsistent greediness
-                const matches = text.matchAll(re);
-                if (matches === null) {
-                    console.warn("Could not match result", text, re);
-                    return;
-                }
-                const match = [...matches][0];
-
-                // Report before-context and advance line number
-                const bsplit = text.lastIndexOf('\n', match.index - 1);
-                let asplit = text.indexOf('\n', match.index + match[0].length);
-                if (asplit < 0) {
-                    asplit = text.length;
-                }
-                if (bsplit > 0) {
-                    const before = text.slice(0, bsplit).split('\n');
-                    for (const line of before) {
+                // Report context (lines before and after match). Line numbers
+                // are 1-indexed.
+                for (const [i, line] of lines.entries()) {
+                    const lineNumber = contextStart + i;
+                    if (lineNumber < startLine || lineNumber > endLine) {
                         progress.report({
-                            uri, text: line, lineNumber: lineNo,
+                            uri, text: line, lineNumber: lineNumber,
                         });
-                        lineNo++;
                     }
                 }
 
-                // Report match, advance line no. for internal matches
-                const inner = text.slice(bsplit + 1, asplit).split('\n');
-                const startCol = match.index! - text.lastIndexOf('\n', match.index!) - 1;
-                const endCol = (match.index! + match[0].length - 1) -
-                    text.lastIndexOf('\n', match.index! + match[0].length - 1);
+                // Report match. Line numbers and column numbers are 0-indexed.
+                // Go figure.
                 progress.report({
                     uri,
                     ranges: [new vscode.Range(
-                        lineNo - 1, startCol,
-                        lineNo + inner.length - 2, endCol,
+                        startLine - 1, startCol - 1,
+                        endLine - 1, endCol - 1,
                     )],
                     preview: {
-                        text: inner.join('\n'),
+                        text: lines.join('\n'),
                         matches: [new vscode.Range(
-                            0, startCol,
-                            inner.length - 1, endCol,
-                        )]
+                            beforeContext, startCol - 1,
+                            lines.length - afterContext - 1, endCol - 1,
+                        )],
                     },
                 });
-                lineNo += inner.length;
-
-                // Report after-context
-                if (asplit < text.length) {
-                    let after = text.slice(asplit + 1).split('\n');
-                    if (after.slice(-1)[0].length == 0) {
-                        after = after.slice(0, -1);
-                    }
-                    for (const line of after) {
-                        progress.report({
-                            uri, text: line, lineNumber: lineNo,
-                        });
-                        lineNo++;
-                    }
-                }
             }, token);
     }
 }

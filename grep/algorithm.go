@@ -51,11 +51,8 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 		matchStart := pair[0] + chunkStart
 		matchEnd := pair[1] + chunkStart
 
-		contextStart := bytes.LastIndexByte(buf[:matchStart], nl) + 1
-		for i := 0; i < g.Context; i++ {
-			contextStart = bytes.LastIndexByte(buf[:contextStart-1], nl) + 1
-		}
-		lineEnd := bytes.IndexByte(buf[matchEnd-1:], nl)
+		lineStart := bytes.LastIndexByte(buf[:matchStart], nl) + 1
+		lineEnd := bytes.IndexByte(buf[matchEnd:], nl)
 		if lineEnd < 0 {
 			// Can't find end of line: this can happen when we match the
 			// last line of a file that doesn't have a trailing newline.
@@ -63,22 +60,41 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 		} else {
 			lineEnd += matchEnd
 		}
-		contextEnd := lineEnd
+
+		startCol := matchStart - lineStart + 1
+		endCol := matchEnd - bytes.LastIndexByte(buf[:matchEnd], nl)
+
+		contextStart := lineStart
+		beforeContext := 0
 		for i := 0; i < g.Context; i++ {
-			pos := bytes.IndexByte(buf[contextEnd:], nl)
-			if pos < 0 {
-				contextEnd = len(buf)
-			} else {
-				contextEnd = pos + 1 + contextEnd
+			if contextStart > 0 {
+				contextStart = bytes.LastIndexByte(buf[:contextStart-1], nl) + 1
+				beforeContext++
 			}
 		}
+
+		contextEnd := lineEnd
+		afterContext := 0
+		for i := 0; i < g.Context; i++ {
+			if contextEnd < len(buf) {
+				pos := bytes.IndexByte(buf[contextEnd+1:], nl)
+				if pos < 0 {
+					contextEnd = len(buf)
+				} else {
+					contextEnd += pos + 1
+				}
+				afterContext++
+			}
+		}
+		contextStartLine := lineno + bytes.Count(buf[chunkStart:lineStart], []byte{nl}) - beforeContext
 
 		// Print result, then advance to the end of the last line containing the
 		// match. This imposes a one-match-per-line resource limit, and ensures
 		// buf[chunkStart:] is always on a line boundary so ^ works correctly.
-		lineno += bytes.Count(buf[chunkStart:contextStart], []byte{nl})
-		fmt.Fprintf(g.Stdout, "%s:%d %q\n", filename, lineno, buf[contextStart:contextEnd])
-		lineno += bytes.Count(buf[contextStart:lineEnd], []byte{nl})
+		fmt.Fprintf(g.Stdout, "%s %d %d %d %d %d %q\n",
+			filename, contextStartLine, beforeContext, afterContext, startCol, endCol,
+			buf[contextStart:contextEnd])
+		lineno += bytes.Count(buf[chunkStart:lineEnd], []byte{nl})
 		chunkStart = lineEnd
 		count++
 	}
