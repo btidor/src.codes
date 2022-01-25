@@ -163,8 +163,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set up regexp flags. Compile(), and also Javascript, default to Perl
 	// matching options, so we should start with that flag. Then add `m` to
 	// always allow ^ and $ to match the start/end of the line.
-	var intFlags = syntax.Perl & ^syntax.OneLine
-	var charFlags = "m"
+	var intFlags = syntax.Perl & ^syntax.OneLine & syntax.NonGreedy
+	var charFlags = "mU"
 
 	// Turn on case-insensitivity if requested
 	var rawFlags = r.URL.Query().Get("flags")
