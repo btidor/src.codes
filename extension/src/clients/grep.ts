@@ -10,7 +10,7 @@ export default class GrepClient {
         this.config = config;
     }
 
-    query(q: string, flags: string, includes: string[], excludes: string[], context: number, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<void> {
+    query(q: string, flags: string, includes: string[], excludes: string[], context: number, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<boolean> {
         let params = new URLSearchParams({ q, flags });
         for (const i of includes) {
             params.append("include", i);
@@ -23,8 +23,8 @@ export default class GrepClient {
         }
 
         let currentFile: vscode.Uri | null = null;
-        let contextLines = new Map();
-        let matchLines = new Set();
+        let contextLines = new Map<number, string>();
+        let matchLines = new Set<number>();
 
         return HTTPClient.streamingFetch(
             this.config.grep, this.config.distribution, params.toString(),
@@ -82,12 +82,20 @@ export default class GrepClient {
                 for (let i = startLine; i <= endLine; i++) {
                     matchLines.add(i);
                 }
-            }, token).then(() => {
+            }, token).then(footers => {
                 if (currentFile) {
                     for (const [lineNumber, text] of contextLines) {
                         if (matchLines.has(lineNumber)) continue;
                         progress.report({ uri: currentFile!, text, lineNumber });
                     }
+                }
+
+                const errors = footers.get("Errors:");
+                if (errors === undefined) {
+                    return false;
+                } else {
+                    console.warn("Grep server error", errors);
+                    return true;
                 }
             });
     }
