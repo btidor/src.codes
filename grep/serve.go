@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	maxFileSize = (1 << 20)
-	maxContext  = 10
-	nl          = '\n'
+	maxFileSize   = (1 << 20)
+	maxFileVisits = 500
+	maxContext    = 10
+	nl            = '\n'
 )
 
 type Index struct {
@@ -163,6 +164,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var after = r.URL.Query().Get("after")
+
 	var includes = Globs{r.URL.Query()["include"]}
 	var excludes = Globs{r.URL.Query()["exclude"]}
 
@@ -211,12 +214,16 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var grep = Grep{Context: context, Regexp: re, Stdout: w}
 	var iquery = index.RegexpQuery(rsyntax)
-	var count int
+	var count, files int
+	var resume string
 	var errors []error
+overall:
 	for _, ix := range ixlist {
 		if len(includes.G) > 0 && !includes.CanMatchPrefix(ix.Package) {
 			continue
 		} else if excludes.MustMatchPrefix(ix.Package) {
+			continue
+		} else if after != "" && ix.Package <= after {
 			continue
 		}
 
@@ -228,6 +235,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if len(includes.G) > 0 && !includes.MatchPath(relative) {
 				continue perfile
 			} else if excludes.MatchPath(relative) {
+				continue perfile
+			} else if after != "" && relative <= after {
 				continue perfile
 			}
 
@@ -246,21 +255,32 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Search source file to confirm matches
 			n, err := grep.Reader(f, relative)
 			count += n
+			files++
 			if err != nil {
 				errors = append(errors, err)
+			}
+			if files >= maxFileVisits {
+				resume = relative
+				break overall
 			}
 		}
 	}
 
-	fmt.Fprintf(w, "\nQuery: %q\n", query)
-	fmt.Fprintf(w, "Flags: %q  Context: %d  Includes: %v  Excludes: %v\n",
+	fmt.Fprintf(w, "\nQuery:\t%q\n", query)
+	if after != "" {
+		fmt.Fprintf(w, "After:\t%s\n", after)
+	}
+	fmt.Fprintf(w, "Flags:\t%q\tContext:\t%d\tIncludes:\t%v\tExcludes:\t%v\n",
 		charFlags, context, includes, excludes)
-	fmt.Fprintf(w, "Results: %d\n", count)
-	fmt.Fprintf(w, "Time: %s\n", time.Since(start))
+	fmt.Fprintf(w, "Count:\t%d\n", count)
+	fmt.Fprintf(w, "Time:\t%s\n", time.Since(start))
+	if resume != "" {
+		fmt.Fprintf(w, "Resume:\t%s\n", resume)
+	}
 	if len(errors) > 0 {
-		fmt.Fprintf(w, "Errors:")
+		fmt.Fprintf(w, "Errors:\t")
 		for _, err := range errors {
-			fmt.Fprintf(w, " %#v", err)
+			fmt.Fprintf(w, "%#v ", err)
 		}
 		fmt.Fprintf(w, "\n")
 	}
