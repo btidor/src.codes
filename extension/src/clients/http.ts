@@ -3,11 +3,13 @@ import * as vscode from 'vscode';
 import axios from 'axios';
 
 export default class HTTPClient {
-    static streamingFetch(base: vscode.Uri, path: string, params: string, callback: (line: string) => void, token: vscode.CancellationToken): Promise<void> {
+    static streamingFetch(base: vscode.Uri, path: string, params: string, callback: (line: string) => void, token: vscode.CancellationToken): Promise<Map<string, string>> {
         // vscode.Uri doesn't quite get escaping right, so do it manually
         const url = vscode.Uri.joinPath(base, path).toString(false) + '?' + params;
         let line = '';
         let decoder = new TextDecoder('utf-8');
+        let footers = new Map<string, string>();
+        let inFooter = false;
         const handleChunk = (chunk: ArrayBuffer) => {
             let start = 0;
             let arr = new Uint8Array(chunk);
@@ -15,12 +17,17 @@ export default class HTTPClient {
                 if (arr[i] == 10) {
                     line += decoder.decode(arr.slice(start, i));
                     if (line == "") {
-                        // Stop at the first blank line, since there's debugging
-                        // information in a footer which we need to skip.
-                        // TODO: log errors + incomplete responses
-                        break;
+                        // The first blank line indicates the start of the
+                        // footer.
+                        inFooter = true;
+                    } else if (inFooter) {
+                        const parts = line.split(/\t/g);
+                        for (let i = 0; i < parts.length; i += 2) {
+                            footers.set(parts[i], parts[i + 1]);
+                        }
+                    } else {
+                        callback(line);
                     }
-                    callback(line);
                     line = "";
                     start = i + 1;
                 }
@@ -50,9 +57,9 @@ export default class HTTPClient {
         }
 
         if (typeof process === 'undefined' || process.title === 'browser') {
-            return this.streamingFetchBrowser(url, handleChunk, signal);
+            return this.streamingFetchBrowser(url, handleChunk, signal).then(() => footers);
         } else {
-            return this.streamingFetchNode(url, handleChunk, signal);
+            return this.streamingFetchNode(url, handleChunk, signal).then(() => footers);
         }
     }
 
