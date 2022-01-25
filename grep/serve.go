@@ -78,7 +78,8 @@ func (gs Globs) MatchPath(path string) bool {
 	return false
 }
 
-func (gs Globs) CanMatchPrefix(prefix string) bool {
+func (gs Globs) CanMatchPrefix(part string) bool {
+	prefix := part + "/"
 	for _, glob := range gs.G {
 		var gfx string
 		if i := strings.IndexRune(glob, '*'); i < 0 {
@@ -90,6 +91,24 @@ func (gs Globs) CanMatchPrefix(prefix string) bool {
 			return true
 		} else if strings.HasPrefix(gfx, prefix) {
 			return true
+		}
+	}
+	return false
+}
+
+func (gs Globs) MustMatchPrefix(part string) bool {
+	for _, glob := range gs.G {
+		components := strings.Split(glob, "/")
+		// fmt.Printf("%s %s %s\n", part, glob, components)
+		for i, comp := range components[:len(components)-1] {
+			if comp == "**" {
+				continue
+			} else if ok, _ := doublestar.Match(comp, part); ok {
+				if components[i+1] == "**" {
+					return true
+				}
+			}
+			break
 		}
 	}
 	return false
@@ -195,7 +214,9 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var count int
 	var errors []error
 	for _, ix := range ixlist {
-		if len(includes.G) > 0 && !includes.CanMatchPrefix(ix.Package+"/") {
+		if len(includes.G) > 0 && !includes.CanMatchPrefix(ix.Package) {
+			continue
+		} else if excludes.MustMatchPrefix(ix.Package) {
 			continue
 		}
 
