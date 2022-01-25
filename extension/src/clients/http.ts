@@ -56,11 +56,18 @@ export default class HTTPClient {
             }
         }
 
+        let response;
         if (typeof process === 'undefined' || process.title === 'browser') {
-            return this.streamingFetchBrowser(url, handleChunk, signal).then(() => footers);
+            response = this.streamingFetchBrowser(url, handleChunk, signal);
         } else {
-            return this.streamingFetchNode(url, handleChunk, signal).then(() => footers);
+            response = this.streamingFetchNode(url, handleChunk, signal);
         }
+        return response.then(() => {
+            if (!inFooter) {
+                throw new Error("Response from server was truncated");
+            }
+            return footers;
+        });
     }
 
     private static streamingFetchNode(url: string, handleChunk: (line: ArrayBuffer) => void, signal?: AbortSignal): Promise<void> {
