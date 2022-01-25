@@ -5,12 +5,14 @@ import HTTPClient from './http';
 
 export default class GrepClient {
     private config: Config;
+    private cache: Map<string, [string | undefined | null, boolean, vscode.TextSearchResult[]]>;
 
     constructor(config: Config) {
         this.config = config;
+        this.cache = new Map();
     }
 
-    query(q: string, flags: string, includes: string[], excludes: string[], context: number, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<boolean> {
+    query(q: string, flags: string, includes: string[], excludes: string[], context: number, progress: vscode.Progress<vscode.TextSearchResult>, token: vscode.CancellationToken): Thenable<[boolean, boolean]> {
         let params = new URLSearchParams({ q, flags });
         for (const i of includes) {
             params.append("include", i);
@@ -25,6 +27,31 @@ export default class GrepClient {
         let currentFile: vscode.Uri | null = null;
         let contextLines = new Map<number, string>();
         let matchLines = new Set<number>();
+
+        const cacheKey = JSON.stringify([q, flags, includes, excludes, context]);
+        const existing = this.cache.get(cacheKey);
+        let results: vscode.TextSearchResult[] = [];
+        if (existing !== undefined) {
+            results = existing[2];
+            for (const result of results) {
+                progress.report(result);
+            }
+
+            switch (existing[0]) {
+                case undefined:
+                    // Previous request crashed, try again
+                    results.splice(0, results.length);
+                    break;
+                case null:
+                    // Previous request completed fully
+                    return Promise.resolve([existing[1], false]);
+                default:
+                    // Load next page of results
+                    params.append("after", existing[0]);
+            }
+        } else {
+            this.cache.set(cacheKey, [undefined, false, results]);
+        }
 
         return HTTPClient.streamingFetch(
             this.config.grep, this.config.distribution, params.toString(),
@@ -44,7 +71,9 @@ export default class GrepClient {
                 if (uri.toString() != currentFile?.toString()) {
                     for (const [lineNumber, text] of contextLines) {
                         if (matchLines.has(lineNumber)) continue;
-                        progress.report({ uri: currentFile!, text, lineNumber });
+                        const context = { uri: currentFile!, text, lineNumber };
+                        progress.report(context);
+                        results.push(context);
                     }
                     currentFile = uri;
                     contextLines.clear();
@@ -62,7 +91,7 @@ export default class GrepClient {
 
                 // Report match. Line numbers and column numbers are 0-indexed.
                 // Go figure.
-                progress.report({
+                const match = {
                     uri,
                     ranges: [new vscode.Range(
                         startLine - 1, startCol - 1,
@@ -75,7 +104,9 @@ export default class GrepClient {
                             lines.length - afterContext - 1, endCol - 1,
                         )],
                     },
-                });
+                };
+                progress.report(match);
+                results.push(match);
 
                 // Any lines reported as part of a match must be *removed* from
                 // the context, otherwise they'll be duplicated in the output.
@@ -86,17 +117,24 @@ export default class GrepClient {
                 if (currentFile) {
                     for (const [lineNumber, text] of contextLines) {
                         if (matchLines.has(lineNumber)) continue;
-                        progress.report({ uri: currentFile!, text, lineNumber });
+                        const context = { uri: currentFile!, text, lineNumber };
+                        progress.report(context);
+                        results.push(context);
                     }
                 }
 
                 const errors = footers.get("Errors:");
-                if (errors === undefined) {
-                    return false;
-                } else {
-                    console.warn("Grep server error", errors);
-                    return true;
+                if (errors !== undefined) {
+                    console.warn("Grep error:", errors);
                 }
+                const hasErrors = (existing && existing[1]) || errors !== undefined;
+
+                const resume = footers.get("Resume:");
+                if (resume !== undefined) {
+                    this.cache.set(cacheKey, [resume, hasErrors, results]);
+                }
+
+                return [hasErrors, resume !== undefined];
             });
     }
 }

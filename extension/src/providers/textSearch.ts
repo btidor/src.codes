@@ -37,11 +37,18 @@ export default class TextSearchProvider implements vscode.TextSearchProvider {
 
         return this.grepClient.query(
             pattern, flags, options.includes, options.excludes, context, progress, token,
-        ).then(errored => {
+        ).then(([errored, hasMore]) => {
             if (errored) {
                 messages.push({
                     text: "An error occurred during the search. Results may be incomplete.",
                     type: vscode.TextSearchCompleteMessageType.Warning,
+                });
+            }
+            if (hasMore) {
+                messages.push({
+                    text: "[Load More Results](command:srcCodes.triggerSearch)",
+                    trusted: true,
+                    type: vscode.TextSearchCompleteMessageType.Information,
                 });
             }
             return { limitHit: false, message: messages };

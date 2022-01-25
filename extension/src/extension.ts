@@ -53,13 +53,16 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerWorkspaceSymbolProvider(
 			new GlobalSymbolProvider(symbolsClient),
 		),
-		vscode.commands.registerCommand('src-codes-explore', _ => {
+		vscode.commands.registerCommand('srcCodes.explore', _ => {
 			vscode.commands.executeCommand(
 				'vscode.openFolder', vscode.Uri.from({
 					scheme: config.scheme,
 					path: '/' + config.distribution,
 				}),
 			);
+		}),
+		vscode.commands.registerCommand('srcCodes.triggerSearch', _ => {
+			return { triggerSearch: true };
 		}),
 	);
 

@@ -17,14 +17,15 @@
   ],
   "activationEvents": [
     "onFileSystem:srccodes",
-    "onCommand:src-codes-explore"
+    "onCommand:srcCodes.explore",
+    "onCommand:srcCodes.triggerSearch"
   ],
   "main": "./dist/std/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "src-codes-explore",
+        "command": "srcCodes.explore",
         "title": "Join in Workspace",
         "category": "Distro Source Explorer"
       }
