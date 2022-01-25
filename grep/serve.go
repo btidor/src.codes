@@ -22,8 +22,13 @@ const (
 	nl          = '\n'
 )
 
+type Index struct {
+	*index.Index
+	Package string
+}
+
 func serve() {
-	var indexes = make(map[string][]*index.Index)
+	var indexes = make(map[string][]*Index)
 	for distro := range distros {
 		matches, err := filepath.Glob(
 			filepath.Join(fastDir, "grep", distro, "*", "*", "*.csi"),
@@ -35,7 +40,8 @@ func serve() {
 			panic("no indexes found for distro " + distro)
 		}
 		for _, filename := range matches {
-			indexes[distro] = append(indexes[distro], index.Open(filename))
+			pkg := filepath.Base(filepath.Dir(filename))
+			indexes[distro] = append(indexes[distro], &Index{index.Open(filename), pkg})
 		}
 	}
 
@@ -57,8 +63,40 @@ func serve() {
 	panic(err)
 }
 
+type Globs struct {
+	G []string
+}
+
+func (gs Globs) MatchPath(path string) bool {
+	for _, glob := range gs.G {
+		if ok, _ := doublestar.Match(glob, path); ok {
+			return true
+		} else if ok, _ = doublestar.Match(glob+"/**", path); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (gs Globs) CanMatchPrefix(prefix string) bool {
+	for _, glob := range gs.G {
+		var gfx string
+		if i := strings.IndexRune(glob, '*'); i < 0 {
+			gfx = glob
+		} else {
+			gfx = glob[:i]
+		}
+		if len(gfx) <= len(prefix) && strings.HasPrefix(prefix, gfx) {
+			return true
+		} else if strings.HasPrefix(gfx, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 type grepHandler struct {
-	indexes map[string][]*index.Index
+	indexes map[string][]*Index
 }
 
 func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -106,8 +144,8 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var includes = r.URL.Query()["include"]
-	var excludes = r.URL.Query()["exclude"]
+	var includes = Globs{r.URL.Query()["include"]}
+	var excludes = Globs{r.URL.Query()["exclude"]}
 
 	var context int
 	if c := r.URL.Query().Get("context"); c != "" {
@@ -157,30 +195,19 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var count int
 	var errors []error
 	for _, ix := range ixlist {
+		if len(includes.G) > 0 && !includes.CanMatchPrefix(ix.Package+"/") {
+			continue
+		}
+
 	perfile:
 		for _, fileid := range ix.PostingQuery(iquery) {
 			relative := ix.Name(fileid)
 
 			// Handle include and exclude options
-			if len(includes) > 0 {
-				included := false
-				for _, include := range includes {
-					if ok, _ := doublestar.Match(include, relative); ok {
-						included = true
-					} else if ok, _ = doublestar.Match(include+"/**", relative); ok {
-						included = true
-					}
-				}
-				if !included {
-					continue perfile
-				}
-			}
-			for _, exclude := range excludes {
-				if ok, _ := doublestar.Match(exclude, relative); ok {
-					continue perfile
-				} else if ok, _ = doublestar.Match(exclude+"/**", relative); ok {
-					continue perfile
-				}
+			if len(includes.G) > 0 && !includes.MatchPath(relative) {
+				continue perfile
+			} else if excludes.MatchPath(relative) {
+				continue perfile
 			}
 
 			// Find source file
