@@ -88,14 +88,21 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 		}
 		contextStartLine := lineno + bytes.Count(buf[chunkStart:lineStart], []byte{nl}) - beforeContext
 
-		// Print result, then advance to the end of the last line containing the
-		// match. This imposes a one-match-per-line resource limit, and ensures
-		// buf[chunkStart:] is always on a line boundary so ^ works correctly.
+		// Print result, then advance to the end of the first line containing
+		// the match. This imposes a one-match-per-line resource limit, and
+		// ensures buf[chunkStart:] is always on a line boundary so ^ works
+		// correctly.
 		fmt.Fprintf(g.Stdout, "%s %d %d %d %d %d %q\n",
 			filename, contextStartLine, beforeContext, afterContext, startCol, endCol,
 			buf[contextStart:contextEnd])
-		lineno += bytes.Count(buf[chunkStart:lineEnd], []byte{nl})
-		chunkStart = lineEnd
+		nextLine := bytes.IndexByte(buf[lineStart:], nl)
+		if nextLine < 0 {
+			nextLine = len(buf)
+		} else {
+			nextLine += lineStart + 1 // advance past newline character
+		}
+		lineno += bytes.Count(buf[chunkStart:nextLine], []byte{nl})
+		chunkStart = nextLine
 		count++
 	}
 
