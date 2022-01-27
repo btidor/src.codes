@@ -2,7 +2,7 @@
 
 set -euf -o pipefail
 
-IMAGE="ghcr.io/btidor/src.codes"
+IMAGE="ghcr.io/btidor/src.codes:${1-latest}"
 NAME="src-grep"
 HOSTNAME="grep.src.codes"
 IP6="2605:6400:5ba2::c0de:2"
@@ -13,7 +13,7 @@ docker pull "$IMAGE"
 
 STALE="$(docker container ls --all --quiet --filter name=$NAME)"
 if [[ "$STALE" ]]; then
-    docker container rm "$NAME"
+    docker container rm --force "$NAME"
 fi
 
 docker run -dit \

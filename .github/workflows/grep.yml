@@ -1,8 +1,6 @@
 name: grep
 on:
-  push:
-    branches:
-      - main
+  push: {}
   workflow_dispatch: {}
 concurrency: grep
 jobs:
@@ -18,10 +16,19 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
+      - name: Compute Docker metadata
+        id: metadata
+        uses: docker/metadata-action@v3
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch }}
+            type=ref,event=branch,enable=${{ github.ref_name != github.event.repository.default_branch }}
       - name: Build and push Docker images
         uses: docker/build-push-action@v2
         with:
           file: grep/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
           build-args: COMMIT=${{ github.sha }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
