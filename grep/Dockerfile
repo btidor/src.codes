@@ -4,11 +4,11 @@ WORKDIR /go/src/app
 COPY . .
 
 RUN go get -d -v ./...
-RUN go install -v ./...
+RUN CGO_ENABLED=0 go build -v -o /go/build/ ./...
 
 FROM alpine:latest
 
 WORKDIR /
-COPY --from=build /go/bin/grep /grep
+COPY --from=build /go/build/grep /grep
 
 ENTRYPOINT ["/grep"]
