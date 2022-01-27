@@ -1,8 +1,14 @@
-FROM ubuntu:focal
+FROM golang:1.17 as build
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update -yq && apt install -yq curl git
-RUN (curl -sL https://golang.org/dl/go1.17.6.linux-amd64.tar.gz | tar xzC /usr/local)
+WORKDIR /go/src/app
+COPY . .
 
-COPY grep/start /var/start
-CMD ["/var/start"]
+RUN go get -d -v ./...
+RUN go install -v ./...
+
+FROM alpine:latest
+
+WORKDIR /
+COPY --from=build /go/bin/grep /grep
+
+ENTRYPOINT ["/grep"]
