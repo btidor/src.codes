@@ -89,3 +89,9 @@ func main() {
 		panic("unknown subcommand")
 	}
 }
+
+func init() {
+	if len(commit) > 8 {
+		commit = commit[:8]
+	}
+}

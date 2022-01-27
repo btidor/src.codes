@@ -24,3 +24,4 @@ jobs:
           file: grep/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}:latest
+          build-args: COMMIT=${{ github.sha }}
