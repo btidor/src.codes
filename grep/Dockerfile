@@ -9,8 +9,6 @@ RUN CGO_ENABLED=0 go build -v -o /go/build/ -ldflags "-X main.commit=${COMMIT}" 
 
 FROM alpine:latest
 
-WORKDIR /
-COPY --from=build /go/build/grep /
-COPY distributions.toml /
-
-ENTRYPOINT ["/grep"]
+WORKDIR /var/src.codes
+COPY --from=build /go/build/ .
+COPY distributions.toml .

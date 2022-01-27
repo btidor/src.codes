@@ -2,15 +2,14 @@
 
 set -euf -o pipefail
 
-TAG="src-codes/grep"
+IMAGE="ghcr.io/btidor/src.codes"
 NAME="src-grep"
 HOSTNAME="grep.src.codes"
 IP6="2605:6400:5ba2::c0de:2"
 BULKDIR="/data/grep"
 FASTDIR="/var/grep"
-SRCDIR="/var/src.codes"
 
-docker build --tag "$TAG" --pull "$(dirname $0)"
+docker pull "$IMAGE"
 
 STALE="$(docker container ls --all --quiet --filter name=$NAME)"
 if [[ "$STALE" ]]; then
@@ -18,13 +17,17 @@ if [[ "$STALE" ]]; then
 fi
 
 docker run -dit \
-    --mount "type=bind,source=$BULKDIR,target=/bulk" \
-    --mount "type=bind,source=$FASTDIR,target=/fast" \
-    --mount "type=bind,source=$SRCDIR,target=/var/src.codes,readonly" \
+    --mount "type=bind,source=$BULKDIR,target=/bulk,readonly" \
+    --mount "type=bind,source=$FASTDIR,target=/fast,readonly" \
     --name "$NAME" \
     --hostname "$HOSTNAME" \
     --network public \
     --ip6 "$IP6" \
-    "$TAG"
+    "$IMAGE" \
+    /var/src.codes/grep serve \
+    -cert /bulk/tls/certificate.pem \
+    -key /bulk/tls/key.pem \
+    -fastData /fast \
+    -bulkData /bulk
 
 docker image prune --force

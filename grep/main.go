@@ -91,7 +91,7 @@ func main() {
 }
 
 func init() {
-	if len(commit) > 8 {
-		commit = commit[:8]
+	if len(commit) > 7 {
+		commit = commit[:7]
 	}
 }
