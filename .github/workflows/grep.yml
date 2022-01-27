@@ -1,6 +1,7 @@
 name: grep
 on:
   push: {}
+  workflow_dispatch: {}
 concurrency: grep
 jobs:
   deploy:
