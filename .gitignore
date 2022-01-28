@@ -6,6 +6,7 @@ vendor/
 target/
 /_build/
 /extension/dist/
+/zerokube/zerokube
 
 # Profiling artifacts
 *.pprof

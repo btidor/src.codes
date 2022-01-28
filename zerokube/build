@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euf -o pipefail
+
+export ZEROKUBE_BASE="$(dirname $(realpath $0))"
+pushd "$ZEROKUBE_BASE" >/dev/null
+
+export COMMIT="$(git log --pretty=format:%h -n 1)"
+
+go build -ldflags "-X main.commit=$COMMIT" ./...
+popd >/dev/null
