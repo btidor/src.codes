@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/btidor/src.codes/internal"
@@ -39,9 +40,10 @@ var (
 	statedirs    = filepath.Join(rundir, "zerokube.*")
 )
 
-var forceStop = time.Duration(-1)
-
-const startupGracePeriod = 10 * time.Second
+var (
+	forceStop   = time.Duration(-1)
+	gracePeriod = 10 * time.Second
+)
 
 type Zero struct {
 	AdminHost string
@@ -119,11 +121,21 @@ func main() {
 	var ctx = context.Background()
 
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-ch
-		fmt.Println()
-		// zero.GracefulShutdown(ctx) // TODO
+		for _, services := range zero.Services {
+			for _, svc := range services {
+				err := zero.Docker.ContainerStop(
+					context.Background(), svc.Container, &gracePeriod,
+				)
+				if err == nil {
+					fmt.Printf("Gracefully stopped %q\n", svc.Container)
+				} else {
+					fmt.Printf("Error stopping %q: %q\n", svc.Container, err)
+				}
+			}
+		}
 		os.Exit(130)
 	}()
 
@@ -328,7 +340,7 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 
 	// Wait for startup
 	var banner string
-	for i := time.Duration(0); i < startupGracePeriod; i += time.Second {
+	for i := time.Duration(0); i < gracePeriod; i += time.Second {
 		time.Sleep(1 * time.Second)
 
 		r := httptest.NewRequest("GET", config.Serve, nil)
