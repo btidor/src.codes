@@ -21,12 +21,20 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/shlex"
 	"github.com/juju/fslock"
+	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/yaml.v2"
 )
 
-var commit string = "dev"
-var etcdir string = "/etc/zerokube"
-var rundir string = "/var/run/zerokube"
+var (
+	commit = "dev"
+	etcdir = "/etc/zerokube"
+	rundir = "/var/run/zerokube"
+
+	acmedir      = filepath.Join(etcdir, "acme")
+	servicefiles = filepath.Join(etcdir, "services", "*.zero")
+	lockfile     = filepath.Join(rundir, "zerokube.lock")
+	statedirs    = filepath.Join(rundir, "zerokube.*")
+)
 
 var forceStop = time.Duration(-1)
 
@@ -60,7 +68,7 @@ func init() {
 	if err := os.MkdirAll(rundir, 0755); err != nil {
 		panic(err)
 	}
-	lock := fslock.New(filepath.Join(rundir, "zerokube.lock"))
+	lock := fslock.New(lockfile)
 	if err := lock.LockWithTimeout(3 * time.Second); err != nil {
 		fmt.Printf("Another zerokube process exists, exiting...\n")
 		os.Exit(1)
@@ -79,9 +87,7 @@ func main() {
 	}
 
 	var configs = make(map[string]Config)
-	configFiles, err := filepath.Glob(
-		filepath.Join(etcdir, "services", "*.zero"),
-	)
+	configFiles, err := filepath.Glob(servicefiles)
 	if err != nil {
 		panic(err)
 	}
@@ -117,14 +123,37 @@ func main() {
 
 	zero.Initialize(ctx)
 
-	server := &http.Server{
+	var acme = autocert.Manager{
+		Prompt: func(_ string) bool { return true },
+		Cache:  autocert.DirCache(acmedir),
+		HostPolicy: func(_ context.Context, host string) error {
+			if host == zero.AdminHost {
+				return nil
+			} else if _, ok := zero.Services["https://"+host]; ok {
+				return nil
+			}
+			return fmt.Errorf("refusing to issue certificate for unknown host: %s", host)
+		},
+	}
+	var svr1 = http.Server{
+		Handler: zero,
+	}
+	var svr2 = http.Server{
 		Handler:      zero,
+		TLSConfig:    acme.TLSConfig(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second,
 	}
-	fmt.Println("Listening on :80")
-	err = server.ListenAndServe()
-	panic(err)
+	fmt.Println("Listening on :80 and :443")
+	go func() {
+		err := svr1.ListenAndServe()
+		panic(err)
+	}()
+	go func() {
+		err := svr2.ListenAndServeTLS("", "")
+		panic(err)
+	}()
+	select {}
 }
 
 func (z *Zero) Initialize(ctx context.Context) {
@@ -146,11 +175,11 @@ func (z *Zero) Initialize(ctx context.Context) {
 	}
 
 	// Clean up leftover state directories
-	statedirs, err := filepath.Glob(filepath.Join(rundir, "zerokube.*"))
+	dirs, err := filepath.Glob(statedirs)
 	if err != nil {
 		panic(err)
 	}
-	for _, dir := range statedirs {
+	for _, dir := range dirs {
 		err = os.RemoveAll(dir)
 		if err != nil {
 			panic(err)
