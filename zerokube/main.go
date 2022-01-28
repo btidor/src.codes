@@ -207,6 +207,10 @@ func (z *Zero) Initialize(ctx context.Context) {
 	// Start requested containers
 	for slug := range z.Configs {
 		svc := z.StartContainer(ctx, slug)
+		if _, ok := z.Services[svc.Config.Serve]; ok {
+			err := fmt.Errorf("duplicated service: %s", svc.Config.Serve)
+			panic(err)
+		}
 		z.Services[svc.Config.Serve] = append(z.Services[svc.Config.Serve], svc)
 	}
 }
