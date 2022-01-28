@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -166,17 +165,24 @@ func (z *Zero) Initialize(ctx context.Context) {
 }
 
 func (z *Zero) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var hostname = r.Host
-	if r.TLS != nil {
-		hostname = r.TLS.ServerName
+	// Upgrade insecure requests
+	if r.TLS == nil {
+		var url = *r.URL
+		url.Scheme = "https"
+		url.Host = r.Host
+		w.Header().Add("Location", url.String())
+		w.WriteHeader(302)
+		return
 	}
 
+	// Figure out which backend to route the request to
+	var hostname = r.TLS.ServerName
 	if hostname == z.AdminHost {
 		z.ServeAdmin(w, r)
 	} else if svc, ok := z.Services["https://"+hostname]; ok {
 		svc[0].Proxy.ServeHTTP(w, r)
 	} else {
-		internal.HTTPError(w, r, 404)
+		internal.HTTPError(w, r, 502)
 	}
 
 }
@@ -262,11 +268,6 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 	// Set up proxy
 	var proxy = &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
-			var err error
-			r.URL, err = url.ParseRequestURI(r.RequestURI)
-			if err != nil {
-				panic(err)
-			}
 			r.URL.Scheme = "http"
 			r.URL.Host = r.Host
 			r.Header.Del("X-Forwarded-For")
