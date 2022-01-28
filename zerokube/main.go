@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -275,7 +276,14 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 		Target: "/var/run/hyper",
 	})
 
-	// TODO: `docker pull`
+	// Pull latest image
+	reader, err := z.Docker.ImagePull(
+		ctx, config.Image, types.ImagePullOptions{})
+	if err != nil {
+		panic(err)
+	}
+	io.Copy(os.Stdout, reader)
+	reader.Close()
 
 	// Run container
 	_, err = z.Docker.ContainerCreate(ctx,
