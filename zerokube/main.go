@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,15 +26,17 @@ import (
 )
 
 var commit string = "dev"
-
 var etcdir string = "/etc/zerokube"
 var rundir string = "/var/run/zerokube"
 
 var forceStop = time.Duration(-1)
 
-var cli *client.Client
-var configs = make(map[string]Config)
-var instances = make(map[string][]Instance)
+type Zero struct {
+	AdminHost string
+	Docker    *client.Client
+	Configs   map[string]Config
+	Services  map[string][]Service
+}
 
 type Config struct {
 	Serve string        `yaml:"serve"`
@@ -40,31 +45,41 @@ type Config struct {
 	Run   string        `yaml:"run,omitempty"`
 }
 
-type Instance struct {
-	Name     string
-	StateDir string
+type Service struct {
+	Slug      string
+	Config    Config
+	Container string
+	Proxy     *httputil.ReverseProxy
+	StateDir  string
+}
+
+func init() {
+	if len(commit) > 7 {
+		commit = commit[:7]
+	}
+
+	if err := os.MkdirAll(rundir, 0755); err != nil {
+		panic(err)
+	}
+	lock := fslock.New(filepath.Join(rundir, "zerokube.lock"))
+	if err := lock.LockWithTimeout(3 * time.Second); err != nil {
+		fmt.Printf("Another zerokube process exists, exiting...\n")
+		os.Exit(1)
+	}
 }
 
 func main() {
-	ctx := context.Background()
-
-	var err error
-	cli, err = client.NewClientWithOpts(client.FromEnv)
+	hostname, err := os.Hostname()
 	if err != nil {
 		panic(err)
 	}
 
-	cleanup(ctx)
+	docker, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
 
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-	go func() {
-		<-ch
-		fmt.Println()
-		cleanup(ctx)
-		os.Exit(130)
-	}()
-
+	var configs = make(map[string]Config)
 	configFiles, err := filepath.Glob(
 		filepath.Join(etcdir, "services", "*.zero"),
 	)
@@ -84,73 +99,54 @@ func main() {
 		configs[slug] = config
 	}
 
-	for slug, config := range configs {
-		instances[slug] = []Instance{
-			startContainer(ctx, slug, config),
-		}
+	var zero = &Zero{
+		AdminHost: hostname,
+		Docker:    docker,
+		Configs:   configs,
+		Services:  make(map[string][]Service),
 	}
+	var ctx = context.Background()
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	go func() {
+		<-ch
+		fmt.Println()
+		// zero.GracefulShutdown(ctx) // TODO
+		os.Exit(130)
+	}()
+
+	zero.Initialize(ctx)
 
 	server := &http.Server{
-		Handler:      zero{},
+		Handler:      zero,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second,
 	}
-	fmt.Println("Listening on :4040")
-	server.Addr = ":4040"
+	fmt.Println("Listening on :80")
 	err = server.ListenAndServe()
 	panic(err)
 }
 
-type zero struct{}
-
-func (z zero) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/":
-		fmt.Fprintf(w, "Hello from zerokube@%s!\n", commit)
-		containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
-		if err != nil {
-			panic(err)
-		}
-		for _, container := range containers {
-			fmt.Fprintf(w, "%s %s %s\n", container.ID[:10], container.Image, container.Names)
-		}
-	case "/robots.txt":
-		fmt.Fprintf(w, "User-agent: *\nDisallow: /\n")
-	default:
-		internal.HTTPError(w, r, 404)
-	}
-}
-
-func init() {
-	if len(commit) > 7 {
-		commit = commit[:7]
-	}
-
-	if err := os.MkdirAll(rundir, 0755); err != nil {
-		panic(err)
-	}
-	lock := fslock.New(filepath.Join(rundir, "zerokube.lock"))
-	if err := lock.LockWithTimeout(3 * time.Second); err != nil {
-		fmt.Printf("Another zerokube process exists, exiting...\n")
-		os.Exit(1)
-	}
-}
-
-func cleanup(ctx context.Context) {
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+func (z *Zero) Initialize(ctx context.Context) {
+	// Clean up leftover Docker containers
+	containers, err := z.Docker.ContainerList(
+		ctx, types.ContainerListOptions{})
 	if err != nil {
 		panic(err)
 	}
 	for _, container := range containers {
-		if len(container.Names) > 0 && strings.HasPrefix(container.Names[0], "/zerokube.") {
-			fmt.Printf("Cleaning up %q\n", container.Names[0])
-			err := cli.ContainerStop(ctx, container.ID, &forceStop)
+		if len(container.Names) > 0 &&
+			strings.HasPrefix(container.Names[0], "/zerokube.") {
+			fmt.Printf("Cleaning up %q\n", container.Names[0][1:])
+			err := z.Docker.ContainerStop(ctx, container.ID, &forceStop)
 			if err != nil {
 				panic(err)
 			}
 		}
 	}
 
+	// Clean up leftover state directories
 	statedirs, err := filepath.Glob(filepath.Join(rundir, "zerokube.*"))
 	if err != nil {
 		panic(err)
@@ -161,9 +157,57 @@ func cleanup(ctx context.Context) {
 			panic(err)
 		}
 	}
+
+	// Start requested containers
+	for slug := range z.Configs {
+		svc := z.StartContainer(ctx, slug)
+		z.Services[svc.Config.Serve] = append(z.Services[svc.Config.Serve], svc)
+	}
 }
 
-func startContainer(ctx context.Context, slug string, config Config) Instance {
+func (z *Zero) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var hostname = r.Host
+	if r.TLS != nil {
+		hostname = r.TLS.ServerName
+	}
+
+	if hostname == z.AdminHost {
+		z.ServeAdmin(w, r)
+	} else if svc, ok := z.Services["https://"+hostname]; ok {
+		svc[0].Proxy.ServeHTTP(w, r)
+	} else {
+		internal.HTTPError(w, r, 404)
+	}
+
+}
+
+func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/":
+		fmt.Fprintf(w, "Hello from zerokube@%s!\n", commit)
+		containers, err := z.Docker.ContainerList(
+			r.Context(), types.ContainerListOptions{})
+		if err != nil {
+			panic(err)
+		}
+		for _, container := range containers {
+			fmt.Fprintf(w, "%s %s %s\n", container.ID[:10],
+				container.Image, container.Names)
+		}
+	case "/robots.txt":
+		fmt.Fprintf(w, "User-agent: *\nDisallow: /\n")
+	default:
+		internal.HTTPError(w, r, 404)
+	}
+}
+
+func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
+	config, ok := z.Configs[slug]
+	if !ok {
+		err := fmt.Errorf("Config %q not found", slug)
+		panic(err)
+	}
+
 	// Set up instance name and state directory
 	id := make([]byte, 2)
 	_, err := rand.Read(id)
@@ -196,30 +240,54 @@ func startContainer(ctx context.Context, slug string, config Config) Instance {
 		Target: "/var/run/hyper",
 	})
 
-	// docker pull && docker run
-	img, err := cli.ImagePull(ctx, config.Image, types.ImagePullOptions{})
-	if err != nil {
-		panic(err)
-	}
-	img.Close()
+	// TODO: `docker pull`
 
-	_, err = cli.ContainerCreate(ctx, &container.Config{
-		Image: config.Image,
-		Cmd:   cmd,
-	}, &container.HostConfig{
-		Mounts: mounts,
-	}, nil, nil, name)
-	if err != nil {
-		panic(err)
-	}
-
-	err = cli.ContainerStart(context.Background(), name, types.ContainerStartOptions{})
+	// Run container
+	_, err = z.Docker.ContainerCreate(ctx,
+		&container.Config{
+			Image: config.Image,
+			Cmd:   cmd,
+		}, &container.HostConfig{
+			Mounts: mounts,
+		}, nil, nil, name)
 	if err != nil {
 		panic(err)
 	}
 
-	return Instance{
-		Name:     name,
-		StateDir: stateDir,
+	err = z.Docker.ContainerStart(ctx, name, types.ContainerStartOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Set up proxy
+	var proxy = &httputil.ReverseProxy{
+		Director: func(r *http.Request) {
+			var err error
+			r.URL, err = url.ParseRequestURI(r.RequestURI)
+			if err != nil {
+				panic(err)
+			}
+			r.URL.Scheme = "http"
+			r.URL.Host = r.Host
+			r.Header.Del("X-Forwarded-For")
+		},
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", filepath.Join(stateDir, "http.sock"))
+			},
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		FlushInterval: -1,
+	}
+
+	return Service{
+		Slug:      slug,
+		Config:    config,
+		Container: name,
+		Proxy:     proxy,
+		StateDir:  stateDir,
 	}
 }
