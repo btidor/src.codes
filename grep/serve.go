@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -52,10 +53,14 @@ func serve() {
 		WriteTimeout: 60 * time.Second,
 	}
 	var err error
-	if certPath != "" || keyPath != "" {
-		fmt.Println("Listening on :443")
-		server.Addr = ":443"
-		err = server.ListenAndServeTLS(certPath, keyPath)
+	if socket != "" {
+		fmt.Printf("Listening on %s\n", socket)
+		var listener net.Listener
+		listener, err = net.Listen("unix", socket)
+		if err != nil {
+			panic(err)
+		}
+		err = server.Serve(listener)
 	} else {
 		fmt.Println("Listening on :5050")
 		server.Addr = ":5050"

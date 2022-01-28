@@ -17,7 +17,7 @@ var (
 
 var commit string = "dev"
 
-var configPath, bulkDir, fastDir, certPath, keyPath string
+var configPath, bulkDir, fastDir, socket string
 var distros = make(map[string]bool)
 
 func main() {
@@ -40,10 +40,7 @@ func main() {
 		)
 	}
 	serveCmd.StringVar(
-		&certPath, "cert", "", "Path to TLS certificate file",
-	)
-	serveCmd.StringVar(
-		&keyPath, "key", "", "Path to TLS private key",
+		&socket, "socket", "", "Unix domain socket to listen on",
 	)
 
 	var subcommand = ""

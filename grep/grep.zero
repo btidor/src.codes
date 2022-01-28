@@ -1,0 +1,10 @@
+serve: https://grep.src.codes
+image: ghcr.io/btidor/src.codes:latest
+mount:
+  - {type: bind, source: /data/grep, target: /bulk, readonly: true}
+  - {type: bind, source: /var/grep,  target: /fast, readonly: true}
+run: |
+  /var/src.codes/grep serve
+    -fastData /fast
+    -bulkData /bulk
+    -socket /var/run/hyper/http.sock
