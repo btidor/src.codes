@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"os"
 	"os/signal"
@@ -39,6 +41,8 @@ var (
 
 var forceStop = time.Duration(-1)
 
+const startupGracePeriod = 10 * time.Second
+
 type Zero struct {
 	AdminHost string
 	Docker    *client.Client
@@ -55,6 +59,7 @@ type Config struct {
 
 type Service struct {
 	Slug      string
+	Banner    string
 	Config    Config
 	Container string
 	Proxy     *httputil.ReverseProxy
@@ -321,10 +326,38 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 		FlushInterval: -1,
 	}
 
-	// TODO: wait for startup and check health
+	// Wait for startup
+	var banner string
+	for i := time.Duration(0); i < startupGracePeriod; i += time.Second {
+		time.Sleep(1 * time.Second)
+
+		r := httptest.NewRequest("GET", config.Serve, nil)
+		w := httptest.NewRecorder()
+		proxy.ServeHTTP(w, r)
+
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(w.Result().Body)
+		banner = buf.String()
+
+		if w.Result().StatusCode == 200 && banner != "" {
+			fmt.Printf("Container %q started successfully\n", name)
+			break
+		} else {
+			fmt.Printf("Waiting on %q: %q %q\n", name, w.Result().Status, banner)
+		}
+	}
+	if banner == "" {
+		err := z.Docker.ContainerStop(ctx, name, &forceStop)
+		if err != nil {
+			panic(err)
+		}
+		err = fmt.Errorf("container failed to start: %q", name)
+		panic(err)
+	}
 
 	return Service{
 		Slug:      slug,
+		Banner:    banner,
 		Config:    config,
 		Container: name,
 		Proxy:     proxy,
