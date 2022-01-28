@@ -321,6 +321,8 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 		FlushInterval: -1,
 	}
 
+	// TODO: wait for startup and check health
+
 	return Service{
 		Slug:      slug,
 		Config:    config,

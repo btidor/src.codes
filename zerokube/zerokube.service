@@ -1,0 +1,8 @@
+[Unit]
+Description=Zerokube
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/zerokube
+Restart=on-failure
