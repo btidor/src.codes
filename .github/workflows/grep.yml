@@ -24,6 +24,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch }}
             type=ref,event=branch,enable=${{ github.ref_name != github.event.repository.default_branch }}
+
       - name: Build and push Docker images
         uses: docker/build-push-action@v2
         with:
@@ -32,3 +33,11 @@ jobs:
           build-args: COMMIT=${{ github.sha }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+
+      - name: Deploy latest image
+        env:
+          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
+        run: |
+          curl https://vm1.src.codes/deploy \
+            --request POST --data grep \
+            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
