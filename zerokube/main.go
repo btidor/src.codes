@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -35,6 +37,7 @@ var (
 	rundir = "/var/run/zerokube"
 
 	acmedir      = filepath.Join(etcdir, "acme")
+	configfile   = filepath.Join(etcdir, "zerokube.conf")
 	servicefiles = filepath.Join(etcdir, "services", "*.zero")
 	lockfile     = filepath.Join(rundir, "zerokube.lock")
 	statedirs    = filepath.Join(rundir, "zerokube.*")
@@ -54,6 +57,11 @@ type Zero struct {
 	Configs map[string]Config
 	// TODO: protect with mutex
 	Services map[string][]Service
+	Token    string
+}
+
+type Meta struct {
+	Token string `yaml:"token"`
 }
 
 type Config struct {
@@ -85,6 +93,20 @@ func init() {
 		fmt.Printf("Another zerokube process exists, exiting...\n")
 		os.Exit(1)
 	}
+
+	if _, err := os.Stat(configfile); err != nil {
+		key := make([]byte, 33)
+		_, err := rand.Read(key)
+		if err != nil {
+			panic(err)
+		}
+		str := base64.URLEncoding.EncodeToString(key)
+		err = os.WriteFile(configfile,
+			[]byte("token: zero_"+str+"\n"), 0600)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func main() {
@@ -95,6 +117,15 @@ func main() {
 
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		panic(err)
+	}
+
+	var meta = Meta{}
+	contents, err := os.ReadFile(configfile)
+	if err != nil {
+		panic(err)
+	}
+	if yaml.Unmarshal(contents, &meta); err != nil {
 		panic(err)
 	}
 
@@ -121,6 +152,7 @@ func main() {
 		Docker:    docker,
 		Configs:   configs,
 		Services:  make(map[string][]Service),
+		Token:     meta.Token,
 	}
 	var ctx = context.Background()
 
@@ -254,34 +286,34 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 				container.Image, container.Names)
 		}
 	case "/deploy":
-		// TODO: authentication
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		slug := strings.TrimSpace(buf.String())
 		if r.Method != "POST" {
 			internal.HTTPError(w, r, 405)
+		} else if config, ok := z.Configs[slug]; !ok {
+			internal.HTTPError(w, r, 404)
+		} else if subtle.ConstantTimeCompare([]byte("Bearer "+z.Token),
+			[]byte(r.Header.Get("Authorization"))) != 1 {
+			internal.HTTPError(w, r, 401)
 		} else {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(r.Body)
-			slug := strings.TrimSpace(buf.String())
-			if config, ok := z.Configs[slug]; !ok {
-				internal.HTTPError(w, r, 404)
-			} else {
-				name := z.StartContainer(r.Context(), slug)
-				fmt.Fprintf(w, "Started %q\n", name)
-				go func() {
-					time.Sleep(readTimeout + writeTimeout)
-					for _, svc := range z.Services[config.Serve] {
-						if svc.Container == name {
-							break
-						}
-						err := z.Docker.ContainerStop(
-							context.Background(), svc.Container, &gracePeriod)
-						if err == nil {
-							fmt.Printf("Gracefully stopped %q\n", svc.Container)
-						} else {
-							fmt.Printf("Error stopping %q: %q\n", svc.Container, err)
-						}
+			name := z.StartContainer(r.Context(), slug)
+			fmt.Fprintf(w, "Started %q\n", name)
+			go func() {
+				time.Sleep(readTimeout + writeTimeout)
+				for _, svc := range z.Services[config.Serve] {
+					if svc.Container == name {
+						break
 					}
-				}()
-			}
+					err := z.Docker.ContainerStop(
+						context.Background(), svc.Container, &gracePeriod)
+					if err == nil {
+						fmt.Printf("Gracefully stopped %q\n", svc.Container)
+					} else {
+						fmt.Printf("Error stopping %q: %q\n", svc.Container, err)
+					}
+				}
+			}()
 		}
 	case "/robots.txt":
 		if r.Method != "GET" {
