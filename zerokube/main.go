@@ -41,15 +41,19 @@ var (
 )
 
 var (
-	forceStop   = time.Duration(-1)
-	gracePeriod = 10 * time.Second
+	forceStop    = time.Duration(-1)
+	gracePeriod  = 10 * time.Second
+	readTimeout  = 10 * time.Second
+	writeTimeout = 60 * time.Second
 )
 
 type Zero struct {
 	AdminHost string
 	Docker    *client.Client
-	Configs   map[string]Config
-	Services  map[string][]Service
+	// TODO: always reload from disk
+	Configs map[string]Config
+	// TODO: protect with mutex
+	Services map[string][]Service
 }
 
 type Config struct {
@@ -159,8 +163,8 @@ func main() {
 	var svr2 = http.Server{
 		Handler:      zero,
 		TLSConfig:    acme.TLSConfig(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
 	}
 	fmt.Println("Listening on :80 and :443")
 	go func() {
@@ -205,13 +209,12 @@ func (z *Zero) Initialize(ctx context.Context) {
 	}
 
 	// Start requested containers
-	for slug := range z.Configs {
-		svc := z.StartContainer(ctx, slug)
-		if _, ok := z.Services[svc.Config.Serve]; ok {
-			err := fmt.Errorf("duplicated service: %s", svc.Config.Serve)
+	for slug, config := range z.Configs {
+		if _, ok := z.Services[config.Serve]; ok {
+			err := fmt.Errorf("duplicated service: %s", config.Serve)
 			panic(err)
 		}
-		z.Services[svc.Config.Serve] = append(z.Services[svc.Config.Serve], svc)
+		z.StartContainer(ctx, slug)
 	}
 }
 
@@ -231,11 +234,10 @@ func (z *Zero) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if hostname == z.AdminHost {
 		z.ServeAdmin(w, r)
 	} else if svc, ok := z.Services["https://"+hostname]; ok {
-		svc[0].Proxy.ServeHTTP(w, r)
+		svc[len(svc)-1].Proxy.ServeHTTP(w, r)
 	} else {
 		internal.HTTPError(w, r, 502)
 	}
-
 }
 
 func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
@@ -251,14 +253,47 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s %s %s\n", container.ID[:10],
 				container.Image, container.Names)
 		}
+	case "/deploy":
+		// TODO: authentication
+		if r.Method != "POST" {
+			internal.HTTPError(w, r, 405)
+		} else {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(r.Body)
+			slug := strings.TrimSpace(buf.String())
+			if config, ok := z.Configs[slug]; !ok {
+				internal.HTTPError(w, r, 404)
+			} else {
+				name := z.StartContainer(r.Context(), slug)
+				fmt.Fprintf(w, "Started %q\n", name)
+				go func() {
+					time.Sleep(readTimeout + writeTimeout)
+					for _, svc := range z.Services[config.Serve] {
+						if svc.Container == name {
+							break
+						}
+						err := z.Docker.ContainerStop(
+							context.Background(), svc.Container, &gracePeriod)
+						if err == nil {
+							fmt.Printf("Gracefully stopped %q\n", svc.Container)
+						} else {
+							fmt.Printf("Error stopping %q: %q\n", svc.Container, err)
+						}
+					}
+				}()
+			}
+		}
 	case "/robots.txt":
+		if r.Method != "GET" {
+			internal.HTTPError(w, r, 405)
+		}
 		fmt.Fprintf(w, "User-agent: *\nDisallow: /\n")
 	default:
 		internal.HTTPError(w, r, 404)
 	}
 }
 
-func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
+func (z *Zero) StartContainer(ctx context.Context, slug string) string {
 	config, ok := z.Configs[slug]
 	if !ok {
 		err := fmt.Errorf("Config %q not found", slug)
@@ -371,7 +406,7 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 		panic(err)
 	}
 
-	return Service{
+	svc := Service{
 		Slug:      slug,
 		Banner:    banner,
 		Config:    config,
@@ -379,4 +414,7 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) Service {
 		Proxy:     proxy,
 		StateDir:  stateDir,
 	}
+	z.Services[svc.Config.Serve] = append(z.Services[svc.Config.Serve], svc)
+
+	return name
 }
