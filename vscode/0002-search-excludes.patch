@@ -1,0 +1,13 @@
+Set up our own search excludes to make things fast.
+
+--- src/vs/workbench/contrib/search/browser/search.contribution.ts	2022-02-03 23:29:55.607244334 +0000
++++ src/vs/workbench/contrib/search/browser/search.contribution.ts	2022-02-03 23:30:23.279716287 +0000
+@@ -825,7 +825,7 @@
+ 		[SEARCH_EXCLUDE_CONFIG]: {
+ 			type: 'object',
+ 			markdownDescription: nls.localize('exclude', "Configure [glob patterns](https://code.visualstudio.com/docs/editor/codebasics#_advanced-search-options) for excluding files and folders in fulltext searches and quick open. Inherits all glob patterns from the `#files.exclude#` setting."),
+-			default: { '**/node_modules': true, '**/bower_components': true, '**/*.code-search': true },
++			default: { '**/test*/**': true, '**/vendor/**': true, 'firefox/**': true, 'libreoffice/**': true, 'linux-*/**': true, 'thunderbird/**': true },
+ 			additionalProperties: {
+ 				anyOf: [
+ 					{

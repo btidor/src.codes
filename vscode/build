@@ -6,7 +6,7 @@ shopt -s failglob
 export PROJECT_BASE="$(dirname $(dirname $(realpath $0)))"
 export BUILD_DIR="$PROJECT_BASE/_build"
 
-export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.63.2.tar.gz"
+export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.64.0.tar.gz"
 
 # Install VS Code build dependencies
 if [ -n "$(command -v apt)" ]; then
@@ -81,14 +81,13 @@ find extensions/ -maxdepth 1 -mindepth 1 -type d | \
   "$PROJECT_BASE/vscode/combine-extensions" > extensions.json
 "$PROJECT_BASE/vscode/inject-contents" "$EXTENSION_TS" extensions.json
 
-# Build VS Code; output is in $BUILD_DIR/out-vscode-min/
-yarn gulp compile-build
-yarn gulp minify-vscode
-yarn gulp compile-web
+# Build VS Code; output is in $BUILD_DIR/out-vscode-web-min/
+yarn gulp vscode-web
+yarn gulp minify-vscode-web
 
-cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-min/"
-cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-min/"
-cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-min/remote"
+cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-web-min/"
+cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-web-min/"
+cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-web-min/remote"
 
 # Vercel chokes on broken symlinks; remove them here
 find "$BUILD_DIR" -xtype l | xargs rm -f
