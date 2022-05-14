@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/vscode/devcontainers/base:0-focal
+FROM mcr.microsoft.com/vscode/devcontainers/base:0-jammy
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -13,21 +13,21 @@ COPY *.gpg /usr/share/keyrings/
 COPY *.list /etc/apt/sources.list.d/
 
 # Install Node and npm packages for extension development. VS Code uses Node
-# 14.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
+# 16.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
 RUN apt update -q && \
     apt install -y -q nodejs && \
-    npm install -g yo generator-code
+    npm install -g npm yo generator-code
 
 # Install development tools
 RUN apt update -q && \
     apt install -y -q silversearcher-ag mysql-client graphviz && \
-    wget https://github.com/planetscale/cli/releases/download/v0.88.0/pscale_0.88.0_linux_amd64.deb && \
-    dpkg --install pscale_0.88.0_linux_amd64.deb && \
+    wget https://github.com/planetscale/cli/releases/download/v0.94.0/pscale_0.94.0_linux_amd64.deb && \
+    dpkg --install pscale_0.94.0_linux_amd64.deb && \
     apt install -y -q linux-tools-generic google-perftools \
         libgoogle-perftools-dev llvm
 
 # Install Go
-RUN (curl -sL https://golang.org/dl/go1.18.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://golang.org/dl/go1.18.2.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust
