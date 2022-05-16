@@ -28,7 +28,7 @@ fn serve() {
     let mut file = File::open("paths.fzf").unwrap();
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
-    server.load("impish".to_string(), &buf);
+    server.load("jammy".to_string(), &buf);
 
     println!("Listening on 127.0.0.1:7070");
     rouille::start_server("127.0.0.1:7070", move |request| {
