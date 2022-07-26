@@ -498,7 +498,7 @@ func (z *Zero) RunHook(ctx context.Context, slug string, hook string, config Con
 		panic(err)
 	}
 	qualified := fmt.Sprintf("%s.%s", slug, hook)
-	name := fmt.Sprintf("zerokube.%s.%s", qualified, hex.EncodeToString(id))
+	name := fmt.Sprintf("zerohook.%s.%s", qualified, hex.EncodeToString(id))
 
 	// Parse and sanitize options
 	cmd := make([]string, 0)
