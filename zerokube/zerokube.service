@@ -6,3 +6,6 @@ Requires=network.target
 Type=simple
 ExecStart=/usr/local/bin/zerokube
 Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
