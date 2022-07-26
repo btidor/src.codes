@@ -8,3 +8,8 @@ run: |
     -fastData /fast
     -bulkData /bulk
     -socket /var/run/hyper/http.sock
+hooks:
+  update: |
+    /var/src.codes/grep update
+      -fastData /fast
+      -bulkData /bulk

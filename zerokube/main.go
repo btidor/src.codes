@@ -57,6 +57,7 @@ type Zero struct {
 	Configs map[string]Config
 	// TODO: protect with mutex
 	Services map[string][]Service
+	Hooks    map[string]map[string]Config
 	Token    string
 }
 
@@ -65,10 +66,11 @@ type Meta struct {
 }
 
 type Config struct {
-	Serve string        `yaml:"serve"`
-	Image string        `yaml:"image"`
-	Mount []mount.Mount `yaml:"mount,omitempty"`
-	Run   string        `yaml:"run,omitempty"`
+	Serve string            `yaml:"serve"`
+	Image string            `yaml:"image"`
+	Mount []mount.Mount     `yaml:"mount,omitempty"`
+	Run   string            `yaml:"run,omitempty"`
+	Hooks map[string]string `yaml:"hooks,omitempty"`
 }
 
 type Service struct {
@@ -152,6 +154,7 @@ func main() {
 		Docker:    docker,
 		Configs:   configs,
 		Services:  make(map[string][]Service),
+		Hooks:     make(map[string]map[string]Config),
 		Token:     meta.Token,
 	}
 	var ctx = context.Background()
@@ -242,11 +245,23 @@ func (z *Zero) Initialize(ctx context.Context) {
 
 	// Start requested containers
 	for slug, config := range z.Configs {
-		if _, ok := z.Services[config.Serve]; ok {
-			err := fmt.Errorf("duplicated service: %s", config.Serve)
-			panic(err)
+		if config.Serve != "" {
+			if _, ok := z.Services[config.Serve]; ok {
+				err := fmt.Errorf("duplicated service: %s", config.Serve)
+				panic(err)
+			}
+			z.StartService(ctx, slug)
 		}
-		z.StartContainer(ctx, slug)
+		for hook := range config.Hooks {
+			if _, ok := z.Hooks[slug]; !ok {
+				z.Hooks[slug] = make(map[string]Config)
+			}
+			if _, ok := z.Hooks[slug][hook]; ok {
+				err := fmt.Errorf("duplicated hook: %s.%s", slug, hook)
+				panic(err)
+			}
+			z.Hooks[slug][hook] = config
+		}
 	}
 }
 
@@ -275,7 +290,7 @@ func (z *Zero) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
-		fmt.Fprintf(w, "Hello from zerokube@%s!\n", commit)
+		fmt.Fprintf(w, "Hello from zerokube@%s!\n\nRunning Containers:\n", commit)
 		containers, err := z.Docker.ContainerList(
 			r.Context(), types.ContainerListOptions{})
 		if err != nil {
@@ -285,6 +300,13 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s %s %s\n", container.ID[:10],
 				container.Image, container.Names)
 		}
+		fmt.Fprint(w, "\nHooks:")
+		for slug, configs := range z.Hooks {
+			for hook := range configs {
+				fmt.Fprintf(w, " %s.%s", slug, hook)
+			}
+		}
+		fmt.Fprintln(w)
 	case "/deploy":
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -297,7 +319,7 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 			[]byte(r.Header.Get("Authorization"))) != 1 {
 			internal.HTTPError(w, r, 401)
 		} else {
-			name := z.StartContainer(r.Context(), slug)
+			name := z.StartService(r.Context(), slug)
 			fmt.Fprintf(w, "Started %q\n", name)
 			go func() {
 				time.Sleep(readTimeout + writeTimeout)
@@ -315,6 +337,23 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 				}
 			}()
 		}
+	case "/hook":
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		name := strings.SplitN(strings.TrimSpace(buf.String()), ".", 2)
+		if r.Method != "POST" {
+			internal.HTTPError(w, r, 405)
+		} else if configs, ok := z.Hooks[name[0]]; !ok {
+			internal.HTTPError(w, r, 404)
+		} else if config, ok := configs[name[1]]; !ok {
+			internal.HTTPError(w, r, 404)
+		} else if subtle.ConstantTimeCompare([]byte("Bearer "+z.Token),
+			[]byte(r.Header.Get("Authorization"))) != 1 {
+			internal.HTTPError(w, r, 401)
+		} else {
+			z.RunHook(r.Context(), name[0], name[1], config)
+			fmt.Fprintf(w, "Started \"%s.%s\"\n", name[0], name[1])
+		}
 	case "/robots.txt":
 		if r.Method != "GET" {
 			internal.HTTPError(w, r, 405)
@@ -325,7 +364,7 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (z *Zero) StartContainer(ctx context.Context, slug string) string {
+func (z *Zero) StartService(ctx context.Context, slug string) string {
 	config, ok := z.Configs[slug]
 	if !ok {
 		err := fmt.Errorf("Config %q not found", slug)
@@ -449,4 +488,53 @@ func (z *Zero) StartContainer(ctx context.Context, slug string) string {
 	z.Services[svc.Config.Serve] = append(z.Services[svc.Config.Serve], svc)
 
 	return name
+}
+
+func (z *Zero) RunHook(ctx context.Context, slug string, hook string, config Config) {
+	// Set up instance name
+	id := make([]byte, 2)
+	_, err := rand.Read(id)
+	if err != nil {
+		panic(err)
+	}
+	qualified := fmt.Sprintf("%s.%s", slug, hook)
+	name := fmt.Sprintf("zerokube.%s.%s", qualified, hex.EncodeToString(id))
+
+	// Parse and sanitize options
+	cmd := make([]string, 0)
+	raw, err := shlex.Split(config.Hooks[hook])
+	if err != nil {
+		panic(err)
+	}
+	for _, r := range raw {
+		if r != "\n" {
+			cmd = append(cmd, r)
+		}
+	}
+
+	// Pull latest image
+	reader, err := z.Docker.ImagePull(
+		ctx, config.Image, types.ImagePullOptions{})
+	if err != nil {
+		panic(err)
+	}
+	io.Copy(os.Stdout, reader)
+	reader.Close()
+
+	// Run container
+	_, err = z.Docker.ContainerCreate(ctx,
+		&container.Config{
+			Image: config.Image,
+			Cmd:   cmd,
+		}, &container.HostConfig{
+			Mounts: config.Mount,
+		}, nil, nil, name)
+	if err != nil {
+		panic(err)
+	}
+
+	err = z.Docker.ContainerStart(ctx, name, types.ContainerStartOptions{})
+	if err != nil {
+		panic(err)
+	}
 }
