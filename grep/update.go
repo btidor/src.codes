@@ -115,8 +115,8 @@ func (p Package) Update() (errored bool) {
 			fmt.Println()
 			fmt.Println(string(debug.Stack()))
 			fmt.Println("*****************")
+			errored = true
 		}
-		errored = true
 	}()
 
 	fmt.Printf("[%s] Downloading codesearch index\n", p.Slug())
