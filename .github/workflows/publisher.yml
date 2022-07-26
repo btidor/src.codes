@@ -27,4 +27,12 @@ jobs:
           B2_CAT_KEY: ${{ secrets.B2_CAT_KEY }}
           B2_META_KEY: ${{ secrets.B2_META_KEY }}
 
+      - name: Deploy latest index
+        env:
+          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
+        run: |
+          curl https://vm1.src.codes/hook \
+            --request POST --data grep.update \
+            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
+
 concurrency: publisher-mutex
