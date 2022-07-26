@@ -264,6 +264,7 @@ overall:
 			if err != nil {
 				errors = append(errors, err)
 			}
+			f.Close()
 			if files >= maxFileVisits {
 				resume = relative
 				break overall
