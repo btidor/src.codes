@@ -5,7 +5,7 @@ use std::error::Error;
 use vercel_lambda::{error::VercelError, lambda, Request, Response};
 
 // TODO: can only support one distro under startup timeout
-const DISTROS: &[&str] = &["jammy"];
+const DISTROS: &[&str] = &["kinetic"];
 const MAX_RESULTS: usize = 100;
 const META_BASE: &str = "https://meta.src.codes/";
 
