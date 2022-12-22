@@ -3,27 +3,83 @@ use fzf::Matcher;
 use fzf::PathServer;
 use fzf::Query;
 use reqwest::Url;
-use rouille::Response;
 use std::collections::BinaryHeap;
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
+use std::sync::Arc;
 
+const DISTROS: &[&str] = &["kinetic"];
+const MAX_RESULTS: usize = 100;
+const META_BASE: &str = "https://meta.src.codes/";
 const NUM_ITERATIONS: usize = 50;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() == 2 && args[1] == "--serve" {
-        serve();
+    if args.len() == 3 && args[1] == "--serve" {
+        serve_prod(args[2].to_string());
+    } else if args.len() == 2 && args[1] == "--serve-dev" {
+        serve_dev();
     } else if args.len() == 2 && args[1] == "--benchmark" {
         benchmark();
     } else {
-        println!("usage: {} {{--serve | --benchmark}}", args[0]);
+        println!(
+            "usage: {} {{--serve SOCKET | --serve-dev | --benchmark}}",
+            args[0]
+        );
     }
 }
 
-fn serve() {
-    let mut server = PathServer::new("dev".to_string(), 100);
+fn serve_prod(socket: String) {
+    let commit = env!("COMMIT")[..8].to_string();
+    let mut server = PathServer::new(commit, MAX_RESULTS);
+
+    for distro in DISTROS {
+        println!("Downloading {} index", distro);
+        let url = META_BASE.to_string() + distro + "/paths.fzf";
+        let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+        server.load(distro.to_string(), &resp);
+    }
+
+    println!("Starting server on {}", socket);
+    let path = Path::new(&socket);
+    if path.exists() {
+        fs::remove_file(path).unwrap();
+    }
+    let http = Arc::new(tiny_http::Server::http_unix(path).unwrap());
+    let server = Arc::new(server);
+
+    for _ in 0..4 {
+        let http = http.clone();
+        let server = server.clone();
+        std::thread::spawn(move || loop {
+            let request = match http.recv() {
+                Ok(rq) => rq,
+                Err(e) => {
+                    println!("error: {}", e);
+                    break;
+                }
+            };
+
+            let url = Url::parse("https://127.0.0.1:9999")
+                .unwrap()
+                .join(request.url())
+                .unwrap();
+            let (status, body) = server.handle(&url);
+
+            let response = tiny_http::Response::from_string(body).with_status_code(status.as_u16());
+            if let Err(e) = request.respond(response) {
+                println!("error: {}", e)
+            }
+        });
+    }
+    loop {}
+}
+
+fn serve_dev() {
+    let mut server = PathServer::new("dev".to_string(), MAX_RESULTS);
 
     let mut file = File::open("paths.fzf").unwrap();
     let mut buf = Vec::new();
@@ -32,11 +88,13 @@ fn serve() {
 
     println!("Listening on 127.0.0.1:7070");
     rouille::start_server("127.0.0.1:7070", move |request| {
-        let x = "https://127.0.0.1:7070".to_string() + &request.raw_url();
-        let url = Url::parse(&x).unwrap();
+        let url = Url::parse("https://127.0.0.1:7070")
+            .unwrap()
+            .join(request.raw_url())
+            .unwrap();
         let (status, body) = server.handle(&url);
 
-        Response::text(body).with_status_code(status.as_u16())
+        rouille::Response::text(body).with_status_code(status.as_u16())
     });
 }
 

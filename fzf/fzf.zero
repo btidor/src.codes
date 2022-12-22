@@ -1,0 +1,4 @@
+serve: https://fzf.src.codes
+image: ghcr.io/btidor/src.codes:latest
+run: |
+  /var/src.codes/fzf --serve /var/run/hyper/http.sock

@@ -33,24 +33,26 @@ impl PathServer {
         let distro = *parts.get(0).unwrap_or(&"");
         if distro == "" {
             // Request to "/"
-            return (StatusCode::OK, format!("Hello from fzf@{}!", self.commit));
+            return (StatusCode::OK, format!("Hello from fzf@{}!\n", self.commit));
+        } else if distro == "robots.txt" {
+            return (StatusCode::OK, format!("User-agent: *\nDisallow: /\n"));
         }
 
         let pkgs = match self.index.get(distro) {
             None => {
-                return (StatusCode::NOT_FOUND, "404 Not Found".to_string());
+                return (StatusCode::NOT_FOUND, "404 Not Found\n".to_string());
             }
             Some(x) => x,
         };
         if parts.len() > 1 {
-            return (StatusCode::NOT_FOUND, "404 Not Found".to_string());
+            return (StatusCode::NOT_FOUND, "404 Not Found\n".to_string());
         }
 
         let params: HashMap<_, _> = url.query_pairs().collect();
         let qstr = params.get("q");
         let query = match qstr.and_then(|q| Query::new(q)) {
             None => {
-                return (StatusCode::BAD_REQUEST, "400 Bad Request".to_string());
+                return (StatusCode::BAD_REQUEST, "400 Bad Request\n".to_string());
             }
             Some(x) => x,
         };

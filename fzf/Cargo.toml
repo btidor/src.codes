@@ -2,6 +2,7 @@
 name = "fzf"
 version = "1.0.0"
 edition = "2018"
+build = "build.rs"
 
 [lib]
 name = "fzf"
@@ -13,6 +14,7 @@ http = "^0.1"
 reqwest = { version = "^0.11", features = ["blocking"] }
 rmp = "^0.8"
 rouille = "^3.3"
+tiny_http = "^0.12"
 
 [dev-dependencies]
 criterion = { version = "^0.3", features = ["html_reports"] }
