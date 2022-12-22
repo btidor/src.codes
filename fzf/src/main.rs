@@ -19,37 +19,50 @@ const NUM_ITERATIONS: usize = 50;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 3 && args[1] == "--serve" {
-        serve_prod(args[2].to_string());
-    } else if args.len() == 2 && args[1] == "--serve-dev" {
-        serve_dev();
+        serve(args[2].to_string(), false);
+    } else if args.len() == 2 && args[1] == "--dev" {
+        serve("localhost:7070".to_string(), true);
     } else if args.len() == 2 && args[1] == "--benchmark" {
         benchmark();
     } else {
         println!(
-            "usage: {} {{--serve SOCKET | --serve-dev | --benchmark}}",
+            "usage: {} {{--serve SOCKET | --dev | --benchmark}}",
             args[0]
         );
     }
 }
 
-fn serve_prod(socket: String) {
+fn serve(addr: String, local: bool) {
     let mut commit = env!("COMMIT").to_string();
     commit.truncate(8);
     let mut server = PathServer::new(commit, MAX_RESULTS);
 
-    for distro in DISTROS {
-        println!("Downloading {} index", distro);
-        let url = META_BASE.to_string() + distro + "/paths.fzf";
-        let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
-        server.load(distro.to_string(), &resp);
+    if local {
+        println!("Loadig index from local cache");
+        let mut file = File::open("paths.fzf").unwrap();
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).unwrap();
+        server.load("kinetic".to_string(), &buf);
+    } else {
+        for distro in DISTROS {
+            println!("Downloading {} index", distro);
+            let url = META_BASE.to_string() + distro + "/paths.fzf";
+            let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+            server.load(distro.to_string(), &resp);
+        }
     }
 
-    println!("Starting server on {}", socket);
-    let path = Path::new(&socket);
-    if path.exists() {
-        fs::remove_file(path).unwrap();
-    }
-    let http = Arc::new(tiny_http::Server::http_unix(path).unwrap());
+    println!("Starting server on {}", addr);
+    let http = if local {
+        tiny_http::Server::http(addr)
+    } else {
+        let path = Path::new(&addr);
+        if path.exists() {
+            fs::remove_file(path).unwrap();
+        }
+        tiny_http::Server::http_unix(path)
+    };
+    let http = Arc::new(http.unwrap());
     let server = Arc::new(server);
 
     for _ in 0..4 {
@@ -77,28 +90,6 @@ fn serve_prod(socket: String) {
         });
     }
     loop {}
-}
-
-fn serve_dev() {
-    let mut commit = env!("COMMIT").to_string();
-    commit.truncate(8);
-    let mut server = PathServer::new(commit, MAX_RESULTS);
-
-    let mut file = File::open("paths.fzf").unwrap();
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf).unwrap();
-    server.load("kinetic".to_string(), &buf);
-
-    println!("Listening on 127.0.0.1:7070");
-    rouille::start_server("127.0.0.1:7070", move |request| {
-        let url = Url::parse("https://127.0.0.1:7070")
-            .unwrap()
-            .join(request.raw_url())
-            .unwrap();
-        let (status, body) = server.handle(&url);
-
-        rouille::Response::text(body).with_status_code(status.as_u16())
-    });
 }
 
 fn benchmark() {

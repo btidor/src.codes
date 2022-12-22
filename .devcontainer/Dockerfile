@@ -33,7 +33,7 @@ RUN (curl -sL https://go.dev/dl/go1.19.4.linux-amd64.tar.gz | tar xzC /usr/local
 # Install Rust
 RUN su vscode -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" && \
     apt update -q && \
-    apt install -y -q libssl-dev gnuplot-nox
+    apt install -y -q gnuplot-nox musl-tools
 
 # Install ctags
 RUN apt update -q && apt install -y -q universal-ctags
