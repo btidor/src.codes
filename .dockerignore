@@ -1,19 +1,19 @@
 # Dependency directories
-node_modules/
+node_modules
 
 # Build directories
-target/
-/_build/
-extension/dist/
+**/target
+_build
+extension/dist
 zerokube/zerokube
 
 # Profiling artifacts
-*.pprof
-perf.data*
+**/*.pprof
+**/perf.data*
 
 # Local cache
-*.fzf
-/_data/
+**/*.fzf
+_data
 
 # For Vercel
 .vercel

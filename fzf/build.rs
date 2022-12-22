@@ -1,9 +1,8 @@
-use std::process::Command;
 fn main() {
-    let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
-        .output()
-        .unwrap();
-    let commit = String::from_utf8(output.stdout).unwrap();
+    println!("cargo:rerun-if-env-changed=COMMIT");
+    let commit = match std::env::var("COMMIT") {
+        Ok(v) => v,
+        Err(_) => String::from("dev"),
+    };
     println!("cargo:rustc-env=COMMIT={}", commit);
 }

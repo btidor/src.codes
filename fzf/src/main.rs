@@ -33,7 +33,8 @@ fn main() {
 }
 
 fn serve_prod(socket: String) {
-    let commit = env!("COMMIT")[..8].to_string();
+    let mut commit = env!("COMMIT").to_string();
+    commit.truncate(8);
     let mut server = PathServer::new(commit, MAX_RESULTS);
 
     for distro in DISTROS {
@@ -79,7 +80,9 @@ fn serve_prod(socket: String) {
 }
 
 fn serve_dev() {
-    let mut server = PathServer::new("dev".to_string(), MAX_RESULTS);
+    let mut commit = env!("COMMIT").to_string();
+    commit.truncate(8);
+    let mut server = PathServer::new(commit, MAX_RESULTS);
 
     let mut file = File::open("paths.fzf").unwrap();
     let mut buf = Vec::new();
