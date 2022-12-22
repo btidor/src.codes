@@ -7,6 +7,6 @@
 	"extensions": [
 		"golang.go",
 		"bungcip.better-toml",
-		"rust-lang.rust"
+		"rust-lang.rust-analyzer"
 	]
 }
