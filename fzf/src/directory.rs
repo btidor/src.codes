@@ -168,25 +168,20 @@ impl Directory {
         let (nom, mut cur) = rmp::decode::read_str_from_slice(cur)?;
         let name = PathComponent::from(nom, initial);
 
-        let nf = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
-        let mut files: Vec<PathComponent> = Vec::with_capacity(nf.try_into().unwrap());
-        let mut j = 0;
-        while j < nf {
-            let (file, tmp) = rmp::decode::read_str_from_slice(cur)?;
-            cur = tmp;
-            let fname = PathComponent::from(file, false);
-            files.push(fname);
-            j += 1;
+        let n = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
+        let mut files: Vec<PathComponent> = Vec::with_capacity(n.try_into().unwrap());
+        for _ in 0..n {
+            let file;
+            (file, cur) = rmp::decode::read_str_from_slice(cur)?;
+            files.push(PathComponent::from(file, false));
         }
 
-        let nc = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
-        let mut children: Vec<Directory> = Vec::with_capacity(nf.try_into().unwrap());
-        let mut k = 0;
-        while k < nc {
-            let (child, tmp) = Directory::decode(cur, false)?;
-            cur = tmp;
+        let n = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
+        let mut children: Vec<Directory> = Vec::with_capacity(n.try_into().unwrap());
+        for _ in 0..n {
+            let child;
+            (child, cur) = Directory::decode(cur, false)?;
             children.push(child);
-            k += 1;
         }
 
         Ok((Directory::new(name, files, children), cur))
