@@ -59,13 +59,16 @@ impl PathComponent<'_> {
     /// string is treated as the start of a path, otherwise a leading `/` is
     /// prepended.
     pub fn from(text: &str, initial: bool) -> PathComponent {
-        let mut data = Vec::new();
+        let mut data;
         let mut char_set = CharSet::new();
         let mut bonus;
         if initial {
             // Start of path: following character gets an 8-point bonus.
             bonus = 8;
+            data = Vec::with_capacity(text.len());
         } else {
+            data = Vec::with_capacity(text.len() + 1);
+
             // Internal path component; add a forward slash as path separator
             data.push(PChar {
                 byte: '/' as u8,
