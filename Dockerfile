@@ -18,7 +18,7 @@ COPY ./fzf/ .
 RUN apt update -q && apt install -y -q musl-tools
 RUN rustup target add x86_64-unknown-linux-musl
 
-RUN cargo build --release --target=x86_64-unknown-linux-musl
+RUN RUSTFLAGS="-C target-cpu=znver2" cargo build --release --target=x86_64-unknown-linux-musl
 
 ### Assemble production image
 FROM alpine:latest
