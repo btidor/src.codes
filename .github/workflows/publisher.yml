@@ -27,12 +27,20 @@ jobs:
           B2_CAT_KEY: ${{ secrets.B2_CAT_KEY }}
           B2_META_KEY: ${{ secrets.B2_META_KEY }}
 
-      - name: Deploy latest index
+      - name: Deploy index to grep
         env:
           ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
         run: |
           curl https://vm1.src.codes/hook \
             --request POST --data grep.update \
+            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
+
+      - name: Deploy index to fzf
+        env:
+          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
+        run: |
+          curl https://vm1.src.codes/deploy \
+            --request POST --data fzf \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"
 
 concurrency: publisher-mutex

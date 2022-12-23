@@ -1,4 +1,4 @@
-name: docker
+name: Docker Image
 on:
   push: {}
   workflow_dispatch: {}
@@ -40,4 +40,12 @@ jobs:
         run: |
           curl https://vm1.src.codes/deploy \
             --request POST --data grep \
+            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
+
+      - name: Deploy fzf with latest image
+        env:
+          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
+        run: |
+          curl https://vm1.src.codes/deploy \
+            --request POST --data fzf \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"
