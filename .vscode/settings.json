@@ -6,7 +6,7 @@
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,
-        "vendor": true
+        "vscode-web": true
     },
     "files.watcherExclude": {
         "_build": true,
@@ -15,7 +15,7 @@
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,
-        "vendor": true
+        "vscode-web": true
     },
     "gopls": {
         // https://github.com/golang/vscode-go/issues/1957

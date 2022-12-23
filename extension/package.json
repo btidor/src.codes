@@ -7,7 +7,7 @@
   "version": "1.0.0-alpha",
   "publisher": "btidor",
   "engines": {
-    "vscode": "^1.72.0"
+    "vscode": "^1.74.0"
   },
   "categories": [
     "Other"
@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",
-    "@types/vscode": "^1.72.0",
+    "@types/vscode": "^1.74.0",
     "@types/webpack-env": "^1.16.3",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
     "@typescript-eslint/parser": "^5.10.2",
