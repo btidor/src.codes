@@ -14,54 +14,8 @@
           "value": "default-src 'self' https://*.src.codes 'unsafe-inline' 'unsafe-eval' data:;"
         }
       ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'none';"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ],
-      "has": [
-        {
-          "type": "host",
-          "value": "(fzf.src.codes|fzf-.*)"
-        }
-      ]
     }
   ],
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/api/fzf",
-      "has": [
-        {
-          "type": "host",
-          "value": "(fzf.src.codes|fzf-.*)"
-        }
-      ]
-    },
-    {
-      "source": "/:path*",
-      "destination": "/api/fzf",
-      "has": [
-        {
-          "type": "host",
-          "value": "(fzf.src.codes|fzf-.*)"
-        }
-      ]
-    }
-  ],
-  "functions": {
-    "api/**/*.rs": {
-      "runtime": "vercel-rust@3.1.2"
-    }
-  },
   "github": {
     "silent": true
   }
