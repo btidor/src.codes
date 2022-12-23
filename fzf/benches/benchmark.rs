@@ -22,7 +22,7 @@ fn benchmark(c: &mut Criterion) {
         let mut h = BinaryHeap::new();
         b.iter(|| {
             for (_, node) in nodes.iter().enumerate() {
-                Matcher::new(&query, 100).walk(node, "", &mut h);
+                Matcher::new(&query, 100).walk(node, "", &mut h, true);
             }
         });
     });

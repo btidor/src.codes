@@ -60,7 +60,7 @@ impl PathServer {
         let start = Instant::now();
         let mut h = BinaryHeap::new();
         for root in pkgs {
-            Matcher::new(&query, self.max_results).walk(root, "", &mut h);
+            Matcher::new(&query, self.max_results).walk(root, "", &mut h, true);
         }
 
         let mut body = String::new();

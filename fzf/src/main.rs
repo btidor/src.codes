@@ -105,7 +105,7 @@ fn benchmark() {
         println!("Iteration {}", i + 1);
         let mut h = BinaryHeap::new();
         for (_, directory) in directories.iter().enumerate() {
-            Matcher::new(&query, 100).walk(directory, "", &mut h);
+            Matcher::new(&query, 100).walk(directory, "", &mut h, true);
         }
     }
 }
