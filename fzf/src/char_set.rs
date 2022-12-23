@@ -3,11 +3,11 @@
 /// [CharSet] tracks which characters are present in a string or collection of
 /// strings. We use it to prune the directory tree by eliminating directories
 /// whose paths don't contain all of the characters of the query. Internally,
-/// [CharSet] uses a [u128] to store this information, allowing for fast
+/// [CharSet] uses a [u64] to store this information, allowing for fast
 /// comparisons.
 #[derive(Clone, Copy, Debug)]
 pub struct CharSet {
-    data: u128,
+    data: u64,
 }
 
 impl CharSet {
@@ -19,18 +19,27 @@ impl CharSet {
     /// Adds a character to the character set. Characters with a value of 128 or
     /// greater are out-of-range and are all mapped to a single bit (bit 0).
     pub fn add(&mut self, ch: char) {
-        let mut lu = u32::from(ch.to_ascii_lowercase());
+        let mut lu = u32::from(ch);
         if lu > 127 {
             lu = 0;
         }
-        self.data |= 1 << lu;
+        self.add_byte(lu as u8);
     }
 
     pub fn add_byte(&mut self, b: u8) {
         let mut b = b;
-        if b >= 65 && b <= 90 {
-            b += 32;
+
+        if b >= 45 && b <= 57 {
+            b = 1 + b - 45;
+        } else if b >= 65 && b <= 90 {
+            // ascii letters to lowercase
+            b = 14 + b - 65;
+        } else if b >= 97 && b <= 122 {
+            b = 14 + b - 97;
+        } else {
+            b = 0;
         }
+
         self.data |= 1 << b;
     }
 
@@ -46,9 +55,9 @@ impl CharSet {
         self.data & other.data == other.data
     }
 
-    /// Returns the internal [u128] representation of the character set. For
+    /// Returns the internal [u64] representation of the character set. For
     /// tests and debugging.
-    pub fn extract_internals(&self) -> u128 {
+    pub fn extract_internals(&self) -> u64 {
         self.data
     }
 }
@@ -67,55 +76,36 @@ mod test {
     fn add() {
         let mut cs = CharSet::new();
         cs.add('a');
-        assert_eq!(
-            0x00000002_00000000_00000000_00000000,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_00004000, cs.extract_internals());
 
         cs.add('B');
-        assert_eq!(
-            0x00000006_00000000_00000000_00000000,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_0000C000, cs.extract_internals());
 
         cs.add(' ');
-        assert_eq!(
-            0x00000006_00000000_00000001_00000000,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_0000C001, cs.extract_internals());
 
         cs.add('🦀');
-        assert_eq!(
-            0x00000006_00000000_00000001_00000001,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_0000C001, cs.extract_internals());
 
         cs.add('b');
-        assert_eq!(
-            0x00000006_00000000_00000001_00000001,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_0000C001, cs.extract_internals());
 
         cs.add('b');
-        assert_eq!(
-            0x00000006_00000000_00000001_00000001,
-            cs.extract_internals()
-        );
+        assert_eq!(0x00000000_0000C001, cs.extract_internals());
     }
 
     #[test]
     fn incorporate() {
         let mut cs0 = CharSet::new();
         cs0.add('A');
+        assert_eq!(0x00000000_00004000, cs0.extract_internals());
 
         let mut cs1 = CharSet::new();
         cs1.add(' ');
+        assert_eq!(0x00000000_00000001, cs1.extract_internals());
 
         cs0.incorporate(&cs1);
-        assert_eq!(
-            0x00000002_00000000_00000001_00000000,
-            cs0.extract_internals()
-        );
+        assert_eq!(0x00000000_00004001, cs0.extract_internals());
     }
 
     #[test]

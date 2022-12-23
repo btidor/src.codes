@@ -143,10 +143,7 @@ mod test {
         assert_eq!(5, query.lookup['E' as usize][1].index);
         assert_eq!(1, query.lookup['E' as usize][1].points);
 
-        assert_eq!(
-            0x00140320_00000000_00000001_00000000,
-            query.char_set.extract_internals()
-        );
+        assert_eq!(0x0000002_80640001, query.char_set.extract_internals());
 
         assert_eq!(8, query.len);
 

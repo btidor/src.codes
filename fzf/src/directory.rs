@@ -210,10 +210,7 @@ mod tests {
             chars.iter().map(|x| x.bonus).collect::<Vec<u8>>()
         );
 
-        assert_eq!(
-            0x040C8046_00000000_00004000_00000000,
-            pc.char_set.extract_internals()
-        );
+        assert_eq!(0x00000081_9008C004, pc.char_set.extract_internals());
     }
 
     #[test]
@@ -233,10 +230,7 @@ mod tests {
             chars.iter().map(|x| x.bonus).collect::<Vec<u8>>()
         );
 
-        assert_eq!(
-            0x0000000E_00000000_04008000_00000001,
-            pc.char_set.extract_internals()
-        );
+        assert_eq!(0x00000000_0001C009, pc.char_set.extract_internals());
     }
 
     #[test]
@@ -273,11 +267,11 @@ mod tests {
         assert_eq!(2, directories.len());
         assert_eq!("root1", directories[0].name.text());
         assert_eq!(
-            0x00148040_00000000_00028000_00000000,
+            0x00000002_90080028,
             directories[0].char_set.extract_internals()
         );
         assert_eq!(
-            0x00148040_00000000_00048000_00000000,
+            0x00000002_90080048,
             directories[1].char_set.extract_internals()
         );
         assert_eq!("/foo", directories[1].files[0].text());
