@@ -7,15 +7,15 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::time::Instant;
 
-pub struct PathServer<'a> {
+pub struct PathServer {
     commit: String,
     max_results: usize,
 
-    index: HashMap<String, Vec<Directory<'a>>>,
+    index: HashMap<String, Vec<Directory>>,
 }
 
-impl<'a> PathServer<'a> {
-    pub fn new(commit: String, max_results: usize) -> PathServer<'a> {
+impl PathServer {
+    pub fn new(commit: String, max_results: usize) -> PathServer {
         PathServer {
             commit,
             max_results,
@@ -23,7 +23,7 @@ impl<'a> PathServer<'a> {
         }
     }
 
-    pub fn load(&mut self, distro: String, data: &'a [u8]) {
+    pub fn load(&mut self, distro: String, data: &[u8]) {
         let root = Directory::load(data).unwrap();
         self.index.insert(distro, root);
     }
@@ -66,8 +66,8 @@ impl<'a> PathServer<'a> {
         let mut body = String::new();
         let mut v = h.into_vec();
         v.sort();
-        for i in &mut v {
-            body.push_str(&format!("{} {}\n", i.score, i.path.split_off(1)));
+        for i in &v {
+            body.push_str(&format!("{} {}\n", i.score, i.path));
         }
 
         body.push_str(&format!("\nQuery: {:?}\n", qstr.unwrap()));

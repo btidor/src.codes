@@ -39,18 +39,16 @@ fn serve(addr: String, local: bool) {
     commit.truncate(8);
 
     let mut server = PathServer::new(commit, MAX_RESULTS);
-    let mut buf = Vec::new();
-    let resp;
-
     if local {
         println!("Loading index from local cache");
         let mut file = File::open("paths.fzf").unwrap();
+        let mut buf = Vec::new();
         file.read_to_end(&mut buf).unwrap();
         server.load(DISTRO.to_string(), &buf);
     } else {
         println!("Downloading index");
         let url = META_BASE.to_string() + DISTRO + "/paths.fzf";
-        resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+        let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
         server.load(DISTRO.to_string(), &resp);
     }
 

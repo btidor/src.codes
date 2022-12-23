@@ -7,13 +7,13 @@ use std::error::Error;
 ///
 /// [Directory] can be used to refer to a package root, or any subtree in a
 /// package. We walk this structure to enumerate the package contents.
-pub struct Directory<'a> {
+pub struct Directory {
     /// The directory name.
-    pub name: PathComponent<'a>,
+    pub name: PathComponent,
     /// The files in this directory.
-    pub files: Vec<PathComponent<'a>>,
+    pub files: Vec<PathComponent>,
     /// The subdirectories of this directory.
-    pub children: Vec<Directory<'a>>,
+    pub children: Vec<Directory>,
     /// A bit vector indicating which ASCII characters appear in the names of
     /// this directory, its files and children (recursively).
     pub char_set: CharSet,
@@ -22,12 +22,9 @@ pub struct Directory<'a> {
 /// A file or directory name.
 ///
 /// [PathComponent] is pre-processed so it can be iterated over efficiently.
-pub struct PathComponent<'a> {
+pub struct PathComponent {
     /// The pre-processed [PChar]s in the path component.
     data: Vec<PChar>,
-    /// A [str] representing the non-normalized printable name of the path
-    /// component.
-    pub text: &'a str,
     /// A [CharSet] representing the characters in the path component.
     pub char_set: CharSet,
 }
@@ -43,7 +40,7 @@ pub struct PChar {
     pub bonus: u8,
 }
 
-impl PathComponent<'_> {
+impl PathComponent {
     /// Returns an iterator over [PChar] objects representing the individual
     /// pre-processed characters of the path component.
     pub fn iter(&self) -> Iter<'_, PChar> {
@@ -53,6 +50,14 @@ impl PathComponent<'_> {
     /// Returns the number of characters in the path component.
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    pub fn text(&self) -> String {
+        let mut text = String::with_capacity(self.data.len());
+        for pc in &self.data {
+            text.push(pc.byte.into())
+        }
+        return text;
     }
 
     /// Constructs a [PathComponent] from a string. If `initial` is set, the
@@ -111,20 +116,16 @@ impl PathComponent<'_> {
             };
         }
 
-        PathComponent {
-            data,
-            text,
-            char_set,
-        }
+        PathComponent { data, char_set }
     }
 }
 
-impl Directory<'_> {
-    pub fn new<'a>(
-        name: PathComponent<'a>,
-        files: Vec<PathComponent<'a>>,
-        children: Vec<Directory<'a>>,
-    ) -> Directory<'a> {
+impl Directory {
+    pub fn new(
+        name: PathComponent,
+        files: Vec<PathComponent>,
+        children: Vec<Directory>,
+    ) -> Directory {
         let mut char_set = CharSet::new();
         char_set.incorporate(&name.char_set);
         files.iter().for_each(|f| char_set.incorporate(&f.char_set));
@@ -195,7 +196,7 @@ mod tests {
     #[test]
     fn path_component_simple() {
         let pc = PathComponent::from("FooBarBaz.rs", true);
-        assert_eq!("FooBarBaz.rs", pc.text);
+        assert_eq!("FooBarBaz.rs", pc.text());
         assert_eq!(12, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -218,7 +219,7 @@ mod tests {
     #[test]
     fn path_component_complex() {
         let pc = PathComponent::from("a/b🦀:C", false);
-        assert_eq!("a/b🦀:C", pc.text);
+        assert_eq!("/a/b\0:C", pc.text());
         assert_eq!(7, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -249,16 +250,16 @@ mod tests {
         let (directory, remainder) = Directory::decode(&demo, true).unwrap();
         assert_eq!(0, remainder.len());
 
-        assert_eq!("root", directory.name.text);
+        assert_eq!("root", directory.name.text());
 
         assert_eq!(3, directory.files.len());
-        assert_eq!("baz", directory.files[2].text);
+        assert_eq!("/baz", directory.files[2].text());
 
         assert_eq!(2, directory.children.len());
-        assert_eq!("child2", directory.children[1].name.text);
+        assert_eq!("/child2", directory.children[1].name.text());
 
         assert_eq!(3, directory.children[1].files.len());
-        assert_eq!("f2", directory.children[1].files[1].text)
+        assert_eq!("/f2", directory.children[1].files[1].text())
     }
 
     #[test]
@@ -270,7 +271,7 @@ mod tests {
         ];
         let directories = Directory::load(&demo).unwrap();
         assert_eq!(2, directories.len());
-        assert_eq!("root1", directories[0].name.text);
+        assert_eq!("root1", directories[0].name.text());
         assert_eq!(
             0x00148040_00000000_00028000_00000000,
             directories[0].char_set.extract_internals()
@@ -279,6 +280,6 @@ mod tests {
             0x00148040_00000000_00048000_00000000,
             directories[1].char_set.extract_internals()
         );
-        assert_eq!("foo", directories[1].files[0].text);
+        assert_eq!("/foo", directories[1].files[0].text());
     }
 }
