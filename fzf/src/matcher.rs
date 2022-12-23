@@ -111,7 +111,7 @@ impl Matcher<'_> {
         let ostates = self.states.to_vec();
         let ocharset = self.char_set;
         let olength = self.length;
-        let path = path.to_owned() + &directory.name.string;
+        let path = path.to_owned() + "/" + &directory.name.text;
 
         for file in &directory.files {
             let mut cs = file.char_set.to_owned();
@@ -129,13 +129,13 @@ impl Matcher<'_> {
             } else if h.len() < self.max_results {
                 h.push(Match {
                     score: score,
-                    path: path.to_owned() + &file.string,
+                    path: path.to_owned() + "/" + &file.text,
                 });
             } else if score > h.peek().unwrap().score {
                 h.pop();
                 h.push(Match {
                     score: score,
-                    path: path.to_owned() + &file.string,
+                    path: path.to_owned() + "/" + &file.text,
                 });
             }
         }
@@ -341,7 +341,7 @@ mod test {
         assert_eq!(4, m.length); // advanced past "root"
         assert_eq!(1, h.len());
         assert_eq!(18 + 10 + 180, h.peek().unwrap().score);
-        assert_eq!("root/child/aaa", h.peek().unwrap().path);
+        assert_eq!("/root/child/aaa", h.peek().unwrap().path);
 
         let mut h = BinaryHeap::new();
         let q = Query::new("/a").unwrap();
@@ -352,9 +352,9 @@ mod test {
         let res0 = h.pop().unwrap();
         let res1 = h.pop().unwrap();
         assert_eq!(4, res0.score);
-        assert_eq!("root/baz", res0.path); // earlier paths win tie-breaker
+        assert_eq!("/root/baz", res0.path); // earlier paths win tie-breaker
 
         assert_eq!(9, res1.score);
-        assert_eq!("root/child/aaa", res1.path);
+        assert_eq!("/root/child/aaa", res1.path);
     }
 }

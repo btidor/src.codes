@@ -9,9 +9,8 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 
-const DISTROS: &[&str] = &["kinetic"];
+const DISTRO: &str = "kinetic";
 const MAX_RESULTS: usize = 100;
 const META_BASE: &str = "https://meta.src.codes/";
 const NUM_ITERATIONS: usize = 50;
@@ -35,64 +34,53 @@ fn main() {
 fn serve(addr: String, local: bool) {
     let mut commit = env!("COMMIT").to_string();
     commit.truncate(8);
+
     let mut server = PathServer::new(commit, MAX_RESULTS);
+    let mut buf = Vec::new();
+    let resp;
 
     if local {
-        println!("Loadig index from local cache");
+        println!("Loading index from local cache");
         let mut file = File::open("paths.fzf").unwrap();
-        let mut buf = Vec::new();
         file.read_to_end(&mut buf).unwrap();
-        server.load("kinetic".to_string(), &buf);
+        server.load(DISTRO.to_string(), &buf);
     } else {
-        for distro in DISTROS {
-            println!("Downloading {} index", distro);
-            let url = META_BASE.to_string() + distro + "/paths.fzf";
-            let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
-            server.load(distro.to_string(), &resp);
-        }
+        println!("Downloading index");
+        let url = META_BASE.to_string() + DISTRO + "/paths.fzf";
+        resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+        server.load(DISTRO.to_string(), &resp);
     }
 
     println!("Starting server on {}", addr);
     let http = if local {
-        tiny_http::Server::http(addr)
+        tiny_http::Server::http(addr).unwrap()
     } else {
         let path = Path::new(&addr);
         if path.exists() {
             fs::remove_file(path).unwrap();
         }
-        tiny_http::Server::http_unix(path)
+        tiny_http::Server::http_unix(path).unwrap()
     };
-    let http = Arc::new(http.unwrap());
-    let server = Arc::new(server);
 
-    let mut handles = Vec::with_capacity(4);
-    for _ in 0..4 {
-        let http = http.clone();
-        let server = server.clone();
-        let handle = std::thread::spawn(move || loop {
-            let request = match http.recv() {
-                Ok(rq) => rq,
-                Err(e) => {
-                    println!("error: {}", e);
-                    break;
-                }
-            };
-
-            let url = Url::parse("https://127.0.0.1:9999")
-                .unwrap()
-                .join(request.url())
-                .unwrap();
-            let (status, body) = server.handle(&url);
-
-            let response = tiny_http::Response::from_string(body).with_status_code(status.as_u16());
-            if let Err(e) = request.respond(response) {
-                println!("error: {}", e)
+    loop {
+        let request = match http.recv() {
+            Ok(rq) => rq,
+            Err(e) => {
+                println!("error: {}", e);
+                break;
             }
-        });
-        handles.push(handle);
-    }
-    for handle in handles {
-        handle.join().unwrap();
+        };
+
+        let url = Url::parse("https://127.0.0.1:9999")
+            .unwrap()
+            .join(request.url())
+            .unwrap();
+        let (status, body) = server.handle(&url);
+
+        let response = tiny_http::Response::from_string(body).with_status_code(status.as_u16());
+        if let Err(e) = request.respond(response) {
+            println!("error: {}", e)
+        }
     }
 }
 

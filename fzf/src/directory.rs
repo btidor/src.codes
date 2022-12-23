@@ -7,13 +7,13 @@ use std::error::Error;
 ///
 /// [Directory] can be used to refer to a package root, or any subtree in a
 /// package. We walk this structure to enumerate the package contents.
-pub struct Directory {
+pub struct Directory<'a> {
     /// The directory name.
-    pub name: PathComponent,
+    pub name: PathComponent<'a>,
     /// The files in this directory.
-    pub files: Vec<PathComponent>,
+    pub files: Vec<PathComponent<'a>>,
     /// The subdirectories of this directory.
-    pub children: Vec<Directory>,
+    pub children: Vec<Directory<'a>>,
     /// A bit vector indicating which ASCII characters appear in the names of
     /// this directory, its files and children (recursively).
     pub char_set: CharSet,
@@ -22,12 +22,12 @@ pub struct Directory {
 /// A file or directory name.
 ///
 /// [PathComponent] is pre-processed so it can be iterated over efficiently.
-pub struct PathComponent {
+pub struct PathComponent<'a> {
     /// The pre-processed [PChar]s in the path component.
     data: Vec<PChar>,
-    /// A [String] representing the non-normalized printable name of the path
+    /// A [str] representing the non-normalized printable name of the path
     /// component.
-    pub string: String,
+    pub text: &'a str,
     /// A [CharSet] representing the characters in the path component.
     pub char_set: CharSet,
 }
@@ -43,7 +43,7 @@ pub struct PChar {
     pub bonus: u8,
 }
 
-impl PathComponent {
+impl PathComponent<'_> {
     /// Returns an iterator over [PChar] objects representing the individual
     /// pre-processed characters of the path component.
     pub fn iter(&self) -> Iter<'_, PChar> {
@@ -58,9 +58,8 @@ impl PathComponent {
     /// Constructs a [PathComponent] from a string. If `initial` is set, the
     /// string is treated as the start of a path, otherwise a leading `/` is
     /// prepended.
-    pub fn from(s: &str, initial: bool) -> PathComponent {
+    pub fn from(text: &str, initial: bool) -> PathComponent {
         let mut data = Vec::new();
-        let mut string = String::new();
         let mut char_set = CharSet::new();
         let mut bonus;
         if initial {
@@ -75,15 +74,13 @@ impl PathComponent {
                 // appearing after a previous slash or other separator.
                 bonus: 0,
             });
-            string.push_str("/");
             char_set.add('/');
 
             // The character following the slash gets a 5-point bonus.
             bonus = 5;
         }
-        string.push_str(s);
 
-        for c in s.chars() {
+        for c in text.chars() {
             if (c as u32) < 128 && (c as u32 > 0) {
                 if bonus == 0 && c.is_ascii_uppercase() {
                     // Bonus for being an internal uppercase character (e.g. in
@@ -113,18 +110,18 @@ impl PathComponent {
 
         PathComponent {
             data,
-            string,
+            text,
             char_set,
         }
     }
 }
 
-impl Directory {
-    pub fn new(
-        name: PathComponent,
-        files: Vec<PathComponent>,
-        children: Vec<Directory>,
-    ) -> Directory {
+impl Directory<'_> {
+    pub fn new<'a>(
+        name: PathComponent<'a>,
+        files: Vec<PathComponent<'a>>,
+        children: Vec<Directory<'a>>,
+    ) -> Directory<'a> {
         let mut char_set = CharSet::new();
         char_set.incorporate(&name.char_set);
         files.iter().for_each(|f| char_set.incorporate(&f.char_set));
@@ -143,12 +140,12 @@ impl Directory {
     /// Decodes a vector of [Directory] objects from a MessagePack byte slice.
     pub fn load(cur: &[u8]) -> Result<Vec<Directory>, Box<dyn Error + '_>> {
         let mut cur = cur;
-        let count = rmp::decode::read_array_len(&mut cur)?;
-        let mut dirs: Vec<Directory> = Vec::with_capacity(count.try_into().unwrap());
-        for _ in 0..count {
+        let n = rmp::decode::read_array_len(&mut cur)?;
+        let mut dirs: Vec<Directory> = Vec::with_capacity(n.try_into().unwrap());
+        for _ in 0..n {
+            let directory;
             rmp::decode::read_bin_len(&mut cur).unwrap();
-            let (directory, tmp) = Directory::decode(cur, true)?;
-            cur = tmp;
+            (directory, cur) = Directory::decode(cur, true)?;
             dirs.push(directory);
         }
 
@@ -195,7 +192,7 @@ mod tests {
     #[test]
     fn path_component_simple() {
         let pc = PathComponent::from("FooBarBaz.rs", true);
-        assert_eq!("FooBarBaz.rs", pc.string);
+        assert_eq!("FooBarBaz.rs", pc.text);
         assert_eq!(12, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -218,7 +215,7 @@ mod tests {
     #[test]
     fn path_component_complex() {
         let pc = PathComponent::from("a/b🦀:C", false);
-        assert_eq!("/a/b🦀:C", pc.string);
+        assert_eq!("a/b🦀:C", pc.text);
         assert_eq!(7, pc.len());
 
         let chars: Vec<&PChar> = pc.iter().collect();
@@ -249,16 +246,16 @@ mod tests {
         let (directory, remainder) = Directory::decode(&demo, true).unwrap();
         assert_eq!(0, remainder.len());
 
-        assert_eq!("root", directory.name.string);
+        assert_eq!("root", directory.name.text);
 
         assert_eq!(3, directory.files.len());
-        assert_eq!("/baz", directory.files[2].string);
+        assert_eq!("baz", directory.files[2].text);
 
         assert_eq!(2, directory.children.len());
-        assert_eq!("/child2", directory.children[1].name.string);
+        assert_eq!("child2", directory.children[1].name.text);
 
         assert_eq!(3, directory.children[1].files.len());
-        assert_eq!("/f2", directory.children[1].files[1].string)
+        assert_eq!("f2", directory.children[1].files[1].text)
     }
 
     #[test]
@@ -270,7 +267,7 @@ mod tests {
         ];
         let directories = Directory::load(&demo).unwrap();
         assert_eq!(2, directories.len());
-        assert_eq!("root1", directories[0].name.string);
+        assert_eq!("root1", directories[0].name.text);
         assert_eq!(
             0x00148040_00000000_00028000_00000000,
             directories[0].char_set.extract_internals()
@@ -279,6 +276,6 @@ mod tests {
             0x00148040_00000000_00048000_00000000,
             directories[1].char_set.extract_internals()
         );
-        assert_eq!("/foo", directories[1].files[0].string);
+        assert_eq!("foo", directories[1].files[0].text);
     }
 }
