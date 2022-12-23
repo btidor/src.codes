@@ -9,6 +9,9 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::str::FromStr;
+use tiny_http::Header;
+use tiny_http::Response;
 
 const DISTRO: &str = "kinetic";
 const MAX_RESULTS: usize = 100;
@@ -77,7 +80,13 @@ fn serve(addr: String, local: bool) {
             .unwrap();
         let (status, body) = server.handle(&url);
 
-        let response = tiny_http::Response::from_string(body).with_status_code(status.as_u16());
+        let mut response = Response::from_string(body).with_status_code(status.as_u16());
+
+        response.add_header(Header::from_str("Access-Control-Allow-Origin: *").unwrap());
+        response.add_header(Header::from_str("Cache-Control: no-cache").unwrap());
+        response
+            .add_header(Header::from_str("Content-Security-Policy: default-src 'none';").unwrap());
+
         if let Err(e) = request.respond(response) {
             println!("error: {}", e)
         }
