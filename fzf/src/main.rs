@@ -65,10 +65,11 @@ fn serve(addr: String, local: bool) {
     let http = Arc::new(http.unwrap());
     let server = Arc::new(server);
 
+    let mut handles = Vec::with_capacity(4);
     for _ in 0..4 {
         let http = http.clone();
         let server = server.clone();
-        std::thread::spawn(move || loop {
+        let handle = std::thread::spawn(move || loop {
             let request = match http.recv() {
                 Ok(rq) => rq,
                 Err(e) => {
@@ -88,8 +89,11 @@ fn serve(addr: String, local: bool) {
                 println!("error: {}", e)
             }
         });
+        handles.push(handle);
     }
-    loop {}
+    for handle in handles {
+        handle.join().unwrap();
+    }
 }
 
 fn benchmark() {
