@@ -45,7 +45,7 @@ var (
 
 var (
 	forceStop    = time.Duration(-1)
-	gracePeriod  = 10 * time.Second
+	gracePeriod  = 30 * time.Second
 	readTimeout  = 10 * time.Second
 	writeTimeout = 60 * time.Second
 )
