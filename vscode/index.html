@@ -7,13 +7,42 @@
 
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-  <meta id="vscode-workbench-web-configuration"
-    data-settings="{&quot;folderUri&quot;:{&quot;scheme&quot;:&quot;srccodes&quot;,&quot;path&quot;:&quot;/kinetic&quot;}}" />
   <link data-name="vs/workbench/workbench.web.main" rel="stylesheet" href="./vs/workbench/workbench.web.main.css" />
 </head>
 
-<body aria-label="">
+<body aria-label="" style="background-color: #1e1e1e">
   <script>
+    const config = document.createElement('meta');
+    config.id = 'vscode-workbench-web-configuration';
+    config.dataset.settings = JSON.stringify({
+      folderUri: {
+        scheme: "srccodes",
+        path: "/kinetic",
+      },
+      configurationDefaults: {
+        "search.exclude": {
+          "**/test*/**": true,
+          "**/vendor/**": true,
+          "firefox/**": true,
+          "libreoffice/**": true,
+          "linux-*/**": true,
+          "thunderbird/**": true,
+        },
+        "workbench.colorCustomizations": {
+          "statusBar.background": "#77216F",
+          "statusBarItem.remoteBackground": "#e95420"
+        },
+        "workbench.colorTheme": "Visual Studio Dark",
+        "workbench.startupEditor": "none",
+      },
+      windowIndicator: {
+        label: "$(terminal-ubuntu)",
+        tooltip: "Ubuntu 22.10",
+        command: null,
+      },
+    });
+    document.head.appendChild(config);
+
     self.require = {
       baseUrl: window.location.origin,
       recordStats: false,
