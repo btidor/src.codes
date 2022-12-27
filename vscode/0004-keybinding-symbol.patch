@@ -1,0 +1,14 @@
+Change the keybinding for symbol search to Shift-Alt-T, since Ctrl-T is
+intercepted by the browser.
+
+--- src/vs/workbench/contrib/search/browser/searchActionsSymbol.ts	2022-12-20 10:02:24.000000000 +0000
++++ src/vs/workbench/contrib/search/browser/searchActionsSymbol.ts	2022-12-27 22:56:50.376411757 +0000
+@@ -30,7 +30,7 @@
+ 			f1: true,
+ 			keybinding: {
+ 				weight: KeybindingWeight.WorkbenchContrib,
+-				primary: KeyMod.CtrlCmd | KeyCode.KeyT
++				primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyT
+ 			},
+ 			menu: {
+ 				id: MenuId.MenubarGoMenu,

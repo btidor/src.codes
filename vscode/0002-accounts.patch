@@ -1,0 +1,13 @@
+Change the Accounts tab in the activity bar to be hidden by default.
+
+--- src/vs/workbench/browser/parts/activitybar/activitybarPart.ts	2022-12-27 02:19:26.205002044 +0000
++++ src/vs/workbench/browser/parts/activitybar/activitybarPart.ts	2022-12-27 02:19:41.503386290 +0000
+@@ -1059,7 +1059,7 @@
+ 	}
+
+ 	private get accountsVisibilityPreference(): boolean {
+-		return this.storageService.getBoolean(AccountsActivityActionViewItem.ACCOUNTS_VISIBILITY_PREFERENCE_KEY, StorageScope.PROFILE, true);
++		return this.storageService.getBoolean(AccountsActivityActionViewItem.ACCOUNTS_VISIBILITY_PREFERENCE_KEY, StorageScope.PROFILE, false);
+ 	}
+
+ 	private set accountsVisibilityPreference(value: boolean) {

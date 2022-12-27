@@ -1,0 +1,14 @@
+Change the keybinding for closing the active editor window to Shift-Alt-W, since
+Ctrl-W is intercepted by the browser.
+
+--- src/vs/workbench/browser/parts/editor/editorCommands.ts	2022-12-20 10:02:24.000000000 +0000
++++ src/vs/workbench/browser/parts/editor/editorCommands.ts	2022-12-27 22:58:23.122478479 +0000
+@@ -814,7 +814,7 @@
+ 		id: CLOSE_EDITOR_COMMAND_ID,
+ 		weight: KeybindingWeight.WorkbenchContrib,
+ 		when: undefined,
+-		primary: KeyMod.CtrlCmd | KeyCode.KeyW,
++		primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyW,
+ 		win: { primary: KeyMod.CtrlCmd | KeyCode.F4, secondary: [KeyMod.CtrlCmd | KeyCode.KeyW] },
+ 		handler: (accessor, resourceOrContext?: URI | IEditorCommandsContext, context?: IEditorCommandsContext) => {
+ 			return closeEditorHandler(accessor, false, resourceOrContext, context);

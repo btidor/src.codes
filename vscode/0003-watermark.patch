@@ -1,0 +1,48 @@
+Customize the example commands shown in the background on startup.
+
+--- src/vs/workbench/contrib/watermark/browser/watermark.ts	2022-12-27 22:11:18.856077933 +0000
++++ src/vs/workbench/contrib/watermark/browser/watermark.ts	2022-12-27 22:12:20.916144669 +0000
+@@ -24,13 +24,10 @@
+ import { KeybindingLabel } from 'vs/base/browser/ui/keybindingLabel/keybindingLabel';
+ import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
+ import { CommandsRegistry } from 'vs/platform/commands/common/commands';
+-import { TerminalCommandId } from 'vs/workbench/contrib/terminal/common/terminal';
+ import { assertIsDefined } from 'vs/base/common/types';
+ import { workbenchConfigurationNodeBase } from 'vs/workbench/common/configuration';
+ import { NEW_UNTITLED_FILE_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
+-import { DEBUG_START_COMMAND_ID } from 'vs/workbench/contrib/debug/browser/debugCommands';
+ import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+-import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
+ import { defaultKeybindingLabelStyles } from 'vs/platform/theme/browser/defaultStyles';
+
+ const $ = dom.$;
+@@ -51,10 +48,8 @@
+ const newUntitledFile: WatermarkEntry = { text: nls.localize('watermark.newUntitledFile', "New Untitled File"), id: NEW_UNTITLED_FILE_COMMAND_ID };
+ const newUntitledFileMacOnly: WatermarkEntry = Object.assign({ mac: true }, newUntitledFile);
+ const findInFiles: WatermarkEntry = { text: nls.localize('watermark.findInFiles', "Find in Files"), id: FindInFilesActionId };
+-const toggleTerminal: WatermarkEntry = { text: nls.localize({ key: 'watermark.toggleTerminal', comment: ['toggle is a verb here'] }, "Toggle Terminal"), id: TerminalCommandId.Toggle, when: TerminalContextKeys.processSupported };
+-const startDebugging: WatermarkEntry = { text: nls.localize('watermark.startDebugging', "Start Debugging"), id: DEBUG_START_COMMAND_ID, when: TerminalContextKeys.processSupported };
+-const toggleFullscreen: WatermarkEntry = { text: nls.localize({ key: 'watermark.toggleFullscreen', comment: ['toggle is a verb here'] }, "Toggle Full Screen"), id: 'workbench.action.toggleFullScreen', when: TerminalContextKeys.processSupported.toNegated() };
+-const showSettings: WatermarkEntry = { text: nls.localize('watermark.showSettings', "Show Settings"), id: 'workbench.action.openSettings', when: TerminalContextKeys.processSupported.toNegated() };
++const goToDefinition: WatermarkEntry = { text: nls.localize('actions.goToDecl.label', "Go to Definition"), id: 'editor.action.revealDefinition' };
++const searchSymbols: WatermarkEntry = { text: nls.localize('showTriggerActions', "Search All Symbols"), id: 'workbench.action.showAllSymbols' };
+
+ const noFolderEntries = [
+ 	showCommands,
+@@ -66,13 +61,11 @@
+ ];
+
+ const folderEntries = [
+-	showCommands,
+ 	quickAccess,
+ 	findInFiles,
+-	startDebugging,
+-	toggleTerminal,
+-	toggleFullscreen,
+-	showSettings
++	goToDefinition,
++	searchSymbols,
++	showCommands,
+ ];
+
+ const WORKBENCH_TIPS_ENABLED_KEY = 'workbench.tips.enabled';
