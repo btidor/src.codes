@@ -44,8 +44,8 @@ var (
 )
 
 var (
-	forceStop    = time.Duration(-1)
-	gracePeriod  = 30 * time.Second
+	forceStop    = 0  // special value
+	gracePeriod  = 30 // seconds
 	readTimeout  = 10 * time.Second
 	writeTimeout = 60 * time.Second
 )
@@ -166,7 +166,8 @@ func main() {
 		for _, services := range zero.Services {
 			for _, svc := range services {
 				err := zero.Docker.ContainerStop(
-					context.Background(), svc.Container, &gracePeriod,
+					context.Background(), svc.Container,
+					container.StopOptions{Timeout: &gracePeriod},
 				)
 				if err == nil {
 					fmt.Printf("Gracefully stopped %q\n", svc.Container)
@@ -220,11 +221,11 @@ func (z *Zero) Initialize(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	for _, container := range containers {
-		if len(container.Names) > 0 &&
-			strings.HasPrefix(container.Names[0], "/zerokube.") {
-			fmt.Printf("Cleaning up %q\n", container.Names[0][1:])
-			err := z.Docker.ContainerStop(ctx, container.ID, &forceStop)
+	for _, ctr := range containers {
+		if len(ctr.Names) > 0 &&
+			strings.HasPrefix(ctr.Names[0], "/zerokube.") {
+			fmt.Printf("Cleaning up %q\n", ctr.Names[0][1:])
+			err := z.Docker.ContainerStop(ctx, ctr.ID, container.StopOptions{Timeout: &forceStop})
 			if err != nil {
 				panic(err)
 			}
@@ -328,7 +329,9 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 						break
 					}
 					err := z.Docker.ContainerStop(
-						context.Background(), svc.Container, &gracePeriod)
+						context.Background(), svc.Container,
+						container.StopOptions{Timeout: &gracePeriod},
+					)
 					if err == nil {
 						fmt.Printf("Gracefully stopped %q\n", svc.Container)
 					} else {
@@ -450,7 +453,7 @@ func (z *Zero) StartService(ctx context.Context, slug string) string {
 
 	// Wait for startup
 	var banner string
-	for i := time.Duration(0); i < gracePeriod; i += time.Second {
+	for i := 0; i < gracePeriod; i++ {
 		time.Sleep(1 * time.Second)
 
 		r := httptest.NewRequest("GET", config.Serve, nil)
@@ -469,7 +472,7 @@ func (z *Zero) StartService(ctx context.Context, slug string) string {
 		}
 	}
 	if banner == "" {
-		err := z.Docker.ContainerStop(ctx, name, &forceStop)
+		err := z.Docker.ContainerStop(ctx, name, container.StopOptions{Timeout: &forceStop})
 		if err != nil {
 			panic(err)
 		}
