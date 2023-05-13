@@ -21,13 +21,13 @@ RUN apt update -q && \
 # Install development tools
 RUN apt update -q && \
     apt install -y -q silversearcher-ag mysql-client graphviz && \
-    wget https://github.com/planetscale/cli/releases/download/v0.129.0/pscale_0.129.0_linux_amd64.deb && \
-    dpkg --install pscale_0.129.0_linux_amd64.deb && \
+    wget https://github.com/planetscale/cli/releases/download/v0.142.0/pscale_0.142.0_linux_amd64.deb && \
+    dpkg --install pscale_0.142.0_linux_amd64.deb && \
     apt install -y -q linux-tools-generic google-perftools \
         libgoogle-perftools-dev llvm
 
 # Install Go
-RUN (curl -sL https://go.dev/dl/go1.20.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://go.dev/dl/go1.20.4.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust
