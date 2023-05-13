@@ -33,7 +33,7 @@ jobs:
           ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
         run: |
           curl https://vm1.src.codes/hook \
-            --request POST --data grep.update \
+            --http1.1 --data grep.update \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"
 
       - name: Deploy index to fzf
@@ -41,5 +41,5 @@ jobs:
           ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
         run: |
           curl https://vm1.src.codes/deploy \
-            --request POST --data fzf \
+            --http1.1 --data fzf \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"
