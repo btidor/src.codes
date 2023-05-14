@@ -16,7 +16,7 @@ import GrepClient from './clients/grep';
 export function activate(context: vscode.ExtensionContext) {
 	const config = {
 		scheme: 'srccodes',
-		distribution: 'kinetic',
+		distribution: 'lunar',
 
 		meta: vscode.Uri.parse('https://meta.src.codes'),
 		ls: vscode.Uri.parse('https://ls.src.codes'),

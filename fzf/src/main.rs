@@ -13,7 +13,7 @@ use std::str::FromStr;
 use tiny_http::Header;
 use tiny_http::Response;
 
-const DISTRO: &str = "kinetic";
+const DISTRO: &str = "lunar";
 const MAX_RESULTS: usize = 100;
 const META_BASE: &str = "https://meta.src.codes/";
 const NUM_ITERATIONS: usize = 50;
