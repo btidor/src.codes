@@ -38,14 +38,12 @@ jobs:
         env:
           ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
         run: |
-          curl https://vm1.src.codes/deploy \
-            --http1.1 --data grep \
+          curl https://vm1.src.codes/deploy --data grep \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"
 
       - name: Deploy fzf with latest image
         env:
           ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
         run: |
-          curl https://vm1.src.codes/deploy \
-            --http1.1 --data fzf \
+          curl https://vm1.src.codes/deploy --data fzf \
             --header "Authorization: Bearer $ZEROKUBE_TOKEN"

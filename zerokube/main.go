@@ -44,8 +44,8 @@ var (
 )
 
 var (
-	forceStop    = 0  // special value
-	gracePeriod  = 30 // seconds
+	forceStop    = 0   // special value
+	gracePeriod  = 300 // seconds
 	readTimeout  = 10 * time.Second
 	writeTimeout = 60 * time.Second
 )
