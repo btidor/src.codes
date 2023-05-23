@@ -3,9 +3,7 @@ package analysis
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,14 +151,12 @@ func TestSerializeNested(t *testing.T) {
 }
 
 func setUpDummyTree() (string, error) {
-	tempdir, err := ioutil.TempDir("", "sctest")
+	tempdir, err := os.MkdirTemp("", "sctest")
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(tempdir)
-	//defer os.RemoveAll(tempdir)
 
-	err = ioutil.WriteFile(
+	err = os.WriteFile(
 		filepath.Join(tempdir, "hello.txt"),
 		[]byte("Hello, World!\n"), // c98c24b677eff44860afea6f493bbaec5bb1c4cbb209c6fc2bbb47f66ff2ad31
 		0644,
@@ -174,7 +170,7 @@ func setUpDummyTree() (string, error) {
 		return "", err
 	}
 
-	err = ioutil.WriteFile(
+	err = os.WriteFile(
 		filepath.Join(tempdir, "somedir", "foo.bar"),
 		[]byte("Buzz\n"), // 49753fbc6dd206f47e0db4841da0a7c9b5150e75334121b3085fb994f1d3e192
 		0644,
@@ -206,6 +202,7 @@ func TestFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tempdir)
 
 	var files = constructTree(tempdir).Files()
 	if len(files) != 2 {
@@ -225,6 +222,7 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tempdir)
 
 	var file = constructTree(tempdir).Contents["hello.txt"].(File)
 	var handle = file.Open()
@@ -246,6 +244,7 @@ func TestConstructTreeBasic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tempdir)
 
 	var tree = constructTree(tempdir)
 	if len(tree.Contents) != 2 {
@@ -295,6 +294,7 @@ func TestConstructTreeInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tempdir)
 
 	err = os.Symlink(
 		"nosuchthing",

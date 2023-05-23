@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,7 +79,7 @@ func DownloadFile(u *url.URL, s ...string) *bytes.Buffer {
 // convenience, callers may pass either a complete URL or a base URL followed by
 // a sequence of path segments as in URLWithPath.
 func SaveFile(dest string, u *url.URL, s ...string) {
-	tmp, err := ioutil.TempFile(filepath.Dir(dest), "tmp-")
+	tmp, err := os.CreateTemp(filepath.Dir(dest), "tmp-")
 	if err != nil {
 		panic(err)
 	}

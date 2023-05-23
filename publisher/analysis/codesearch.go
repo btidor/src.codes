@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +23,7 @@ const (
 )
 
 func ConstructCodesearchIndex(a Archive) ([]byte, []byte) {
-	container, err := ioutil.TempDir("", "srccodes-cs-"+a.Pkg.Name)
+	container, err := os.MkdirTemp("", "srccodes-cs-"+a.Pkg.Name)
 	if err != nil {
 		panic(err)
 	}
@@ -120,11 +119,11 @@ func ConstructCodesearchIndex(a Archive) ([]byte, []byte) {
 		panic(err)
 	}
 
-	buf1, err := ioutil.ReadFile(cs)
+	buf1, err := os.ReadFile(cs)
 	if err != nil {
 		panic(err)
 	}
-	buf2, err := ioutil.ReadFile(an)
+	buf2, err := os.ReadFile(an)
 	if err != nil {
 		panic(err)
 	}

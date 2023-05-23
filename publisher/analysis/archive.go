@@ -4,7 +4,6 @@ package analysis
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -31,9 +30,8 @@ type Archive struct {
 
 // CleanUp deletes the extracted archive from disk.
 //
-//   var a Archive = DownloadExtractAndWalkTree(...)
-//   defer a.CleanUp()
-//
+//	var a Archive = DownloadExtractAndWalkTree(...)
+//	defer a.CleanUp()
 func (a Archive) CleanUp() error {
 	return os.RemoveAll(a.parent)
 }
@@ -44,7 +42,7 @@ func (a Archive) CleanUp() error {
 // the index.
 func DownloadExtractAndWalkTree(pkg apt.Package) Archive {
 	// Create temporary directory
-	tempdir, err := ioutil.TempDir("", "srccodes-"+pkg.Name)
+	tempdir, err := os.MkdirTemp("", "srccodes-"+pkg.Name)
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +52,7 @@ func DownloadExtractAndWalkTree(pkg apt.Package) Archive {
 	for _, file := range pkg.Files {
 		var localName = filepath.Join(tempdir, filepath.Base(file.Name))
 		var data = internal.DownloadFile(pkg.Source.DownloadBase, pkg.Directory, file.Name)
-		err = ioutil.WriteFile(localName, data.Bytes(), 0644)
+		err = os.WriteFile(localName, data.Bytes(), 0644)
 		if err != nil {
 			panic(err)
 		}
