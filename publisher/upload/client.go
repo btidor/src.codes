@@ -60,6 +60,8 @@ func (b *Bucket) PutBuffer(to string, buf *bytes.Buffer, contentType, contentEnc
 	opts := minio.PutObjectOptions{
 		ContentType:     contentType,
 		ContentEncoding: contentEncoding,
+		// Workaround for https://github.com/minio/minio-go/issues/1791
+		SendContentMd5: true,
 	}
 	_, err := b.client.PutObject(context.Background(), b.bucketName, to, buf,
 		int64(buf.Len()), opts)
@@ -68,14 +70,7 @@ func (b *Bucket) PutBuffer(to string, buf *bytes.Buffer, contentType, contentEnc
 
 func (b *Bucket) PutBytes(to string, data []byte, contentType, contentEncoding string) error {
 	buf := bytes.NewBuffer(data)
-	opts := minio.PutObjectOptions{
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
-	}
-	_, err := b.client.PutObject(context.Background(), b.bucketName, to, buf,
-		int64(buf.Len()), opts)
-	return err
-
+	return b.PutBuffer(to, buf, contentType, contentEncoding)
 }
 
 func (b *Bucket) ListObjects() <-chan minio.ObjectInfo {
