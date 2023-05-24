@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"path"
@@ -131,9 +132,9 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
 			defer wg.Done()
 			for u := range jobs {
-				fmt.Printf("Downloading %s\n", u.String())
+				log.Printf("Downloading %s\n", u.String())
 				results <- internal.DownloadFile(u)
-				fmt.Printf("  done %s\n", u.String())
+				log.Printf("  done %s\n", u.String())
 			}
 		}(w, jobs, &wg)
 	}
@@ -231,10 +232,10 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
 			defer wg.Done()
 			for u := range jobs {
-				fmt.Printf("Downloading %s\n", u.String())
+				log.Printf("Downloading %s\n", u.String())
 				raw := internal.DownloadFile(u)
 				results <- raw
-				fmt.Printf("  done %s\n", u.String())
+				log.Printf("  done %s\n", u.String())
 			}
 		}(w, jobs, &wg)
 	}
@@ -366,7 +367,7 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 	}
 
 	if ct := len(p.Corrupted); ct > 0 {
-		fmt.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Key)
+		log.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Key)
 	}
 	if len(p.UnknownDistro) > 0 {
 		unknown := make(map[string]int)
@@ -375,7 +376,7 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 			unknown[distro] += 1
 		}
 		for distro, ct := range unknown {
-			fmt.Printf("Unknown Distro:\t% 6d\t%s\n", ct, distro)
+			log.Printf("Unknown Distro:\t% 6d\t%s\n", ct, distro)
 		}
 	}
 	if len(p.UnknownExtension) > 0 {
@@ -385,7 +386,7 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 			unknown[ext] += 1
 		}
 		for ext, ct := range unknown {
-			fmt.Printf("Unknown Extn:\t% 6d\t%s\n", ct, ext)
+			log.Printf("Unknown Extn:\t% 6d\t%s\n", ct, ext)
 		}
 	}
 	if len(p.WrongEpoch) > 0 {
@@ -395,25 +396,27 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 			wrong[epoch] += 1
 		}
 		for epoch, ct := range wrong {
-			fmt.Printf("Wrong Epoch:\t% 6d\t%d\n", ct, epoch)
+			log.Printf("Wrong Epoch:\t% 6d\t%d\n", ct, epoch)
 		}
 	}
-	fmt.Printf("\nTo Keep:\t% 6d\n\n", p.Current)
+	log.Println()
+	log.Printf("To Keep:\t% 6d\n", p.Current)
+	log.Println()
 
 	total := len(p.Corrupted) + len(p.UnknownDistro) + len(p.UnknownExtension) + len(p.WrongEpoch)
 	if total == 0 {
-		fmt.Printf("Nothing to do!\n")
+		log.Printf("Nothing to do!\n")
 		return
 	}
-	fmt.Printf("Press ENTER to delete %d files!\n", total)
+	log.Printf("Press ENTER to delete %d files!\n", total)
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	fmt.Printf("Deleting...\n")
+	log.Printf("Deleting...\n")
 	count := up.ls.DeleteFiles(p.Corrupted, 0, total)
 	count = up.ls.DeleteFiles(p.UnknownDistro, count, total)
 	count = up.ls.DeleteFiles(p.UnknownExtension, count, total)
 	up.ls.DeleteFiles(p.WrongEpoch, count, total)
-	fmt.Printf("Done!\n")
+	log.Printf("Done!\n")
 }
 
 func epochFromFilename(filename string) int {

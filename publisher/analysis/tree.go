@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -169,7 +170,7 @@ func constructTree(dir string) Directory {
 			node = obj
 		} else {
 			if info.Mode()&fs.ModeNamedPipe != 0 {
-				fmt.Printf("Skipping named pipe %#v\n", path)
+				log.Printf("Skipping named pipe %#v\n", path)
 			} else {
 				err := fmt.Errorf("unknown special file at %#v", path)
 				panic(err)

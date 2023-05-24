@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 
 	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
@@ -56,7 +58,7 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
-	fmt.Println("\u2713 Database")
+	log.Println("\u2713 Database")
 
 	// Connect to Backblaze B2. Requires the env vars listed below to contain a
 	// "keyId:applicationKey:bucketName" tuple.
@@ -64,7 +66,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("\u2713 Backblaze")
+	log.Println("\u2713 Backblaze")
 
 	// Read config file from `../distributions.toml`
 	var rawConfig map[string]internal.ConfigEntry
@@ -89,15 +91,15 @@ func main() {
 			Components: cfg.Components,
 		})
 	}
-	fmt.Println("\u2713 Distro Config")
+	log.Println("\u2713 Distro Config")
 
 	// Start debug server
 	// http://localhost:6060/debug/pprof/goroutine?debug=2
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
 	}()
-	fmt.Println("\u2713 Debug Server")
-	fmt.Println()
+	log.Println("\u2713 Debug Server")
+	log.Println()
 
 	// Run!
 	if len(os.Args) > 1 && os.Args[1] == "prune" {
@@ -129,11 +131,12 @@ func processDistro(distro publisher.Distro) (errored bool) {
 		if err := recover(); err != nil {
 			// If we fail when processing one distro, log the error and
 			// continue.
-			fmt.Printf("\n***** PANIC in distro %s *****\n", distro.Name)
-			fmt.Println(err)
-			fmt.Println()
-			fmt.Println(string(debug.Stack()))
-			fmt.Println("*****************")
+			log.Println()
+			log.Printf("***** PANIC in distro %s *****\n", distro.Name)
+			log.Println(err)
+			log.Println()
+			log.Println(string(debug.Stack()))
+			log.Println("*****************")
 			errored = true
 		}
 	}()
@@ -181,7 +184,7 @@ func processDistro(distro publisher.Distro) (errored bool) {
 		} else {
 			// Package version is new, must be processed
 			jobs <- pkg
-			fmt.Printf("[%s] Feed: % 5d / % 5d\n", distro.Name, count, len(packages))
+			log.Printf("[%s] Feed: % 5d / % 5d\n", distro.Name, count, len(packages))
 		}
 	}
 	close(jobs)
@@ -195,24 +198,24 @@ func processDistro(distro publisher.Distro) (errored bool) {
 	}
 	if !processed && !reindexDistro {
 		// We didn't update any packages, so skip recomputing the indexes.
-		fmt.Printf("[%s] No new packages, skipping index creation\n", distro.Name)
+		log.Printf("[%s] No new packages, skipping index creation\n", distro.Name)
 		return
 	}
 
-	fmt.Printf("[%s] Updating table of contents in DB\n", distro.Name)
+	log.Printf("[%s] Updating table of contents in DB\n", distro.Name)
 	db.UpdateDistroContents(distro.Name, pkgvers)
 
-	fmt.Printf("[%s] Preparing package list\n", distro.Name)
+	log.Printf("[%s] Preparing package list\n", distro.Name)
 	pkgvers = db.ListDistroContents(distro.Name)
 	up.UploadPackageList(distro.Name, pkgvers)
 
-	fmt.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)
+	log.Printf("[%s] Compiling consolidated fzf index\n", distro.Name)
 	up.ConsolidateFzfIndex(distro.Name, pkgvers)
 
-	fmt.Printf("[%s] Compiling consolidated symbols index\n", distro.Name)
+	log.Printf("[%s] Compiling consolidated symbols index\n", distro.Name)
 	up.ConsolidateSymbolsIndex(distro.Name, pkgvers)
 
-	fmt.Printf("[%s] Done!\n", distro.Name)
+	log.Printf("[%s] Done!\n", distro.Name)
 	return
 }
 
@@ -221,28 +224,28 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 		if err := recover(); err != nil {
 			// If we fail when processing one package, log the error and
 			// continue.
-			fmt.Printf("\n***** PANIC in package %s *****\n", pkg.Slug())
-			fmt.Println(err)
-			fmt.Println()
-			fmt.Println(string(debug.Stack()))
-			fmt.Println("*****************")
+			log.Println()
+			log.Printf("***** PANIC in package %s *****\n", pkg.Slug())
+			log.Println(err)
+			log.Println()
+			log.Println(string(debug.Stack()))
+			log.Println("*****************")
 			errored = true
 		}
 	}()
 
-	// TODO: switch to log for timestamps
-	fmt.Printf("[%s] Begin download, extract + walk tree\n", pkg.Slug())
-
+	log.Printf("[%s] Begin download, extract + walk tree\n", pkg.Slug())
 	var archive = analysis.DownloadExtractAndWalkTree(pkg)
 	defer archive.CleanUp()
 
-	fmt.Printf("[%s] Begin deduplicate + upload\n", pkg.Slug())
-
+	log.Printf("[%s] Begin deduplication\n", pkg.Slug())
 	var files []analysis.File
 	if !reindexPkgs {
 		files = db.DeduplicateFiles(archive.Tree.Files())
 	}
 
+	log.Printf("[%s] Begin upload of %d files\n", pkg.Slug(), len(files))
+	var count atomic.Int64
 	var wg sync.WaitGroup
 	jobs := make(chan analysis.File)
 	for w := 0; w < uploadThreads; w++ {
@@ -252,15 +255,15 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 
 			var hashes [][32]byte
 			for file := range jobs {
-				// TODO: dedupe against global map
 				up.UploadFile(file)
 
 				hashes = append(hashes, file.SHA256)
-				if len(hashes) > checkpointLimit {
+				if len(hashes) >= checkpointLimit {
+					progress := count.Add(int64(len(hashes)))
+					log.Printf("[%s] Progress: %d / %d", pkg.Slug(), progress, len(files))
 					db.RecordHashes(hashes)
 					hashes = nil
 				}
-				// TODO: write into global map
 			}
 			// Record final files
 			db.RecordHashes(hashes)
@@ -273,28 +276,28 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	close(jobs)
 	wg.Wait()
 
-	fmt.Printf("[%s] Uploaded %d files; uploading tree\n", pkg.Slug(), len(files))
+	log.Printf("[%s] Uploaded %d files; uploading tree\n", pkg.Slug(), len(files))
 	up.UploadTree(archive)
 
-	fmt.Printf("[%s] Computing and uploading fzf index\n", pkg.Slug())
+	log.Printf("[%s] Computing and uploading fzf index\n", pkg.Slug())
 	fzf := analysis.ConstructFzfIndex(archive)
 	up.UploadFzfPackageIndex(*archive.Pkg, fzf)
 
-	fmt.Printf("[%s] Computing and uploading ctags index\n", pkg.Slug())
+	log.Printf("[%s] Computing and uploading ctags index\n", pkg.Slug())
 	ctags := analysis.ConstructCtagsIndex(archive)
 	up.UploadCtagsPackageIndex(*archive.Pkg, ctags)
 
-	fmt.Printf("[%s] Computing and uploading symbols index\n", pkg.Slug())
+	log.Printf("[%s] Computing and uploading symbols index\n", pkg.Slug())
 	symbols := analysis.ConstructSymbolsIndex(archive, ctags)
 	up.UploadSymbolsPackageIndex(*archive.Pkg, symbols)
 
-	fmt.Printf("[%s] Computing and uploading codesearch index\n", pkg.Slug())
+	log.Printf("[%s] Computing and uploading codesearch index\n", pkg.Slug())
 	codesearch, sourcetar := analysis.ConstructCodesearchIndex(archive)
 	up.UploadCodesearchPackageIndex(*archive.Pkg, codesearch, sourcetar)
 
-	fmt.Printf("[%s] Recording package version in DB\n", pkg.Slug())
+	log.Printf("[%s] Recording package version in DB\n", pkg.Slug())
 	var pv = db.RecordPackageVersion(archive)
 
-	fmt.Printf("[%s] Done!\n", pkg.Slug())
+	log.Printf("[%s] Done!\n", pkg.Slug())
 	return pv, false
 }

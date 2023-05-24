@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -91,7 +92,7 @@ func (b *Bucket) DeleteFiles(targets []*minio.ObjectInfo, start, total int) int 
 	for err := range b.client.RemoveObjects(context.Background(), b.bucketName,
 		objects, minio.RemoveObjectsOptions{}) {
 
-		fmt.Printf("error: %v", err)
+		log.Printf("error: %v", err)
 		errored = true
 	}
 	if errored {

@@ -1,7 +1,7 @@
 package apt
 
 import (
-	"fmt"
+	"log"
 	"net/url"
 	"path"
 
@@ -45,7 +45,7 @@ func FetchSources(distro publisher.Distro) []Source {
 		for _, component := range distro.Components {
 			file := control.FindFileInList(files, path.Join(component, "source", "Sources.xz"))
 			if file.Size == 0 {
-				fmt.Printf("[%s:%s] WARNING: source index has length zero, skipping", slug, component)
+				log.Printf("[%s:%s] WARNING: source index has length zero, skipping", slug, component)
 				break
 			}
 			url := internal.URLWithPath(distro.Mirror, "dists", slug, component, "source",
