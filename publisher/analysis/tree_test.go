@@ -3,7 +3,6 @@ package analysis
 import (
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -209,33 +208,11 @@ func TestFiles(t *testing.T) {
 		t.Errorf("Wrong number of files: %#v", files)
 	}
 
-	if !strings.HasSuffix(files[0].localPath, "/hello.txt") {
+	if !strings.HasSuffix(files[0].LocalPath, "/hello.txt") {
 		t.Errorf("Incorrect first file: %#v", files[0])
 	}
-	if !strings.HasSuffix(files[1].localPath, "/somedir/foo.bar") {
+	if !strings.HasSuffix(files[1].LocalPath, "/somedir/foo.bar") {
 		t.Errorf("Incorrect second file: %#v", files[1])
-	}
-}
-
-func TestOpen(t *testing.T) {
-	tempdir, err := setUpDummyTree()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempdir)
-
-	var file = constructTree(tempdir).Contents["hello.txt"].(File)
-	var handle = file.Open()
-	defer handle.Close()
-
-	var buf strings.Builder
-	_, err = io.Copy(&buf, handle)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if buf.String() != "Hello, World!\n" {
-		t.Errorf("Unexpected file contents: %#v", buf.String())
 	}
 }
 

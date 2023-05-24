@@ -43,15 +43,15 @@ func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
 	return deduped
 }
 
-func (db *Database) RecordFiles(files []analysis.File) {
+func (db *Database) RecordHashes(hashes [][32]byte) {
 	// Note: we expect the caller to batch calls to RecordFile appropriately
-	if len(files) < 1 {
+	if len(hashes) < 1 {
 		return
 	}
 
 	var values []interface{}
-	for i := 0; i < len(files); i++ {
-		values = append(values, files[i].SHA256[:8])
+	for i := 0; i < len(hashes); i++ {
+		values = append(values, hashes[i][:8])
 	}
 
 	_, err := db.Exec(

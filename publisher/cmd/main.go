@@ -250,20 +250,20 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 		go func(w int, jobs <-chan analysis.File, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			var processed []analysis.File
+			var hashes [][32]byte
 			for file := range jobs {
 				// TODO: dedupe against global map
 				up.UploadFile(file)
 
-				processed = append(processed, file)
-				if len(processed) > checkpointLimit {
-					db.RecordFiles(processed)
+				hashes = append(hashes, file.SHA256)
+				if len(hashes) > checkpointLimit {
+					db.RecordHashes(hashes)
+					hashes = nil
 				}
-				processed = []analysis.File{}
 				// TODO: write into global map
 			}
 			// Record final files
-			db.RecordFiles(processed)
+			db.RecordHashes(hashes)
 		}(w, jobs, &wg)
 	}
 

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -23,7 +22,7 @@ import (
 	"github.com/btidor/src.codes/publisher/analysis"
 	"github.com/btidor/src.codes/publisher/apt"
 	"github.com/btidor/src.codes/publisher/database"
-	"github.com/kurin/blazer/b2"
+	"github.com/minio/minio-go/v7"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -31,57 +30,36 @@ const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991
 
 var lsBase = internal.URLMustParse("https://ls.src.codes")
 
-var epochExtractor = regexp.MustCompile(":([0-9]+)(\\.[a-z0-9]+)+$")
+var epochExtractor = regexp.MustCompile(`:([0-9]+)(\.[a-z0-9]+)+$`)
 
 type Uploader struct {
-	ctx context.Context
-
-	ls   *b2.Bucket
-	cat  *b2.Bucket
-	meta *b2.Bucket
+	ls   *Bucket
+	cat  *Bucket
+	meta *Bucket
 
 	downloadThreads int
 }
 
 func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader, error) {
-	var ctx = context.Background()
-
-	ls, err := connect(ctx, lsvar)
+	ls, err := OpenBucket(lsvar)
 	if err != nil {
 		return nil, err
 	}
-	cat, err := connect(ctx, catvar)
+	cat, err := OpenBucket(catvar)
 	if err != nil {
 		return nil, err
 	}
-	meta, err := connect(ctx, metavar)
+	meta, err := OpenBucket(metavar)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Uploader{
-		ctx, ls, cat, meta, downloadThreads,
+		ls, cat, meta, downloadThreads,
 	}, nil
 }
 
-func connect(ctx context.Context, envvar string) (*b2.Bucket, error) {
-	config := strings.Split(os.Getenv(envvar), ":")
-	if len(config) != 3 {
-		return nil, fmt.Errorf("could not find/parse %s", envvar)
-	}
-
-	client, err := b2.NewClient(ctx, config[0], config[1], b2.UserAgent("src.codes"))
-	if err != nil {
-		return nil, err
-	}
-
-	return client.Bucket(ctx, config[2])
-}
-
 func (up *Uploader) UploadFile(f analysis.File) {
-	in := f.Open()
-	defer in.Close()
-
 	hex := hex.EncodeToString(f.SHA256[:])
 	if f.Size == 0 && hex != emptySHA {
 		err := fmt.Errorf("unexpected empty file %#v", f)
@@ -89,13 +67,7 @@ func (up *Uploader) UploadFile(f analysis.File) {
 	}
 	remote := path.Join(hex[0:2], hex[0:4], hex)
 
-	obj := up.cat.Object(remote)
-	out := obj.NewWriter(up.ctx)
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	if err := up.cat.PutFile(remote, f.LocalPath, "", ""); err != nil {
 		panic(err)
 	}
 }
@@ -122,17 +94,7 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	)
 	remote := path.Join(a.Pkg.Source.Distro, a.Pkg.Name, filename)
 
-	obj := up.ls.Object(remote)
-	opts := b2.WithAttrsOption(&b2.Attrs{
-		ContentType: "application/json",
-		Info:        map[string]string{"b2-content-encoding": "gzip"},
-	})
-	out := obj.NewWriter(up.ctx, opts)
-	if _, err := io.Copy(out, &in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err = out.Close(); err != nil {
+	if err := up.ls.PutBuffer(remote, &in, "application/json", "gzip"); err != nil {
 		panic(err)
 	}
 }
@@ -148,13 +110,7 @@ func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf analysis.Node) {
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
 
-	obj := up.ls.Object(remote)
-	out := obj.NewWriter(up.ctx)
-	if _, err := out.Write(data); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err = out.Close(); err != nil {
+	if err := up.ls.PutBytes(remote, data, "", ""); err != nil {
 		panic(err)
 	}
 }
@@ -210,13 +166,7 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 
 	remote := path.Join(distro, "paths.fzf")
 
-	obj := up.meta.Object(remote)
-	out := obj.NewWriter(up.ctx)
-	if _, err := io.Copy(out, consolidated); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	if err := up.meta.PutBuffer(remote, consolidated, "", ""); err != nil {
 		panic(err)
 	}
 }
@@ -239,17 +189,7 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
 
-	obj := up.ls.Object(remote)
-	opts := b2.WithAttrsOption(&b2.Attrs{
-		ContentType: "text/plain",
-		Info:        map[string]string{"b2-content-encoding": "gzip"},
-	})
-	out := obj.NewWriter(up.ctx, opts)
-	if _, err := io.Copy(out, &in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err = out.Close(); err != nil {
+	if err := up.ls.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
 		panic(err)
 	}
 }
@@ -272,17 +212,7 @@ func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
 
-	obj := up.ls.Object(remote)
-	opts := b2.WithAttrsOption(&b2.Attrs{
-		ContentType: "text/plain",
-		Info:        map[string]string{"b2-content-encoding": "gzip"},
-	})
-	out := obj.NewWriter(up.ctx, opts)
-	if _, err := io.Copy(out, &in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err = out.Close(); err != nil {
+	if err := up.ls.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
 		panic(err)
 	}
 }
@@ -343,17 +273,7 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}
 
 	remote := path.Join(distro, "symbols.txt")
-	obj := up.meta.Object(remote)
-	opts := b2.WithAttrsOption(&b2.Attrs{
-		ContentType: "text/plain",
-		Info:        map[string]string{"b2-content-encoding": "gzip"},
-	})
-	out := obj.NewWriter(up.ctx, opts)
-	if _, err := io.Copy(out, &in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	if err := up.meta.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
 		panic(err)
 	}
 }
@@ -376,31 +296,15 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, so
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
 
-	obj := up.ls.Object(remote)
-	opts := b2.WithAttrsOption(&b2.Attrs{
-		Info: map[string]string{"b2-content-encoding": "gzip"},
-	})
-	out := obj.NewWriter(up.ctx, opts)
-	if _, err := io.Copy(out, &in); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	if err := up.ls.PutBuffer(remote, &in, "", "gzip"); err != nil {
 		panic(err)
 	}
 
 	filename = fmt.Sprintf(
 		"%s_%s:%d.tar.zst", pkg.Name, pkg.Version, publisher.Epoch,
 	)
-	obj = up.ls.Object(
-		path.Join(pkg.Source.Distro, pkg.Name, filename),
-	)
-	out = obj.NewWriter(up.ctx)
-	if _, err := out.Write(sourcetar); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	remote = path.Join(pkg.Source.Distro, pkg.Name, filename)
+	if err := up.ls.PutBytes(remote, sourcetar, "", ""); err != nil {
 		panic(err)
 	}
 }
@@ -424,57 +328,50 @@ func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageV
 
 	remote := path.Join(distro, "packages.json")
 
-	obj := up.meta.Object(remote)
-	out := obj.NewWriter(up.ctx)
-	if _, err := out.Write(data); err != nil {
-		out.Close()
-		panic(err)
-	}
-	if err := out.Close(); err != nil {
+	if err := up.meta.PutBytes(remote, data, "", ""); err != nil {
 		panic(err)
 	}
 }
 
 type pruningCategories struct {
-	Corrupted        []*b2.Object
-	UnknownDistro    []*b2.Object
-	UnknownExtension []*b2.Object
-	WrongEpoch       []*b2.Object
+	Corrupted        []*minio.ObjectInfo
+	UnknownDistro    []*minio.ObjectInfo
+	UnknownExtension []*minio.ObjectInfo
+	WrongEpoch       []*minio.ObjectInfo
 	Current          int
 }
 
 func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[string]bool) {
 	var p pruningCategories
 
-	iter := up.ls.List(up.ctx)
-	for iter.Next() {
-		filename := iter.Object().Name()
-		parts := strings.Split(filename, "/")
-		if filename == "robots.txt" {
+	for obj := range up.ls.ListObjects() {
+		if obj.Err != nil {
+			panic(obj.Err)
+		}
+
+		parts := strings.Split(obj.Key, "/")
+		if obj.Key == "robots.txt" {
 			// skip
 		} else if len(parts) != 3 {
-			p.Corrupted = append(p.Corrupted, iter.Object())
+			p.Corrupted = append(p.Corrupted, &obj)
 		} else if !knownDistros[parts[0]] {
-			p.UnknownDistro = append(p.UnknownDistro, iter.Object())
-		} else if !knownSuffixes[filepath.Ext(filename)] {
-			p.UnknownExtension = append(p.UnknownExtension, iter.Object())
-		} else if epochFromFilename(filename) != publisher.Epoch {
-			p.WrongEpoch = append(p.WrongEpoch, iter.Object())
+			p.UnknownDistro = append(p.UnknownDistro, &obj)
+		} else if !knownSuffixes[filepath.Ext(obj.Key)] {
+			p.UnknownExtension = append(p.UnknownExtension, &obj)
+		} else if epochFromFilename(obj.Key) != publisher.Epoch {
+			p.WrongEpoch = append(p.WrongEpoch, &obj)
 		} else {
 			p.Current += 1
 		}
 	}
-	if err := iter.Err(); err != nil {
-		panic(err)
-	}
 
 	if ct := len(p.Corrupted); ct > 0 {
-		fmt.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Name())
+		fmt.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Key)
 	}
 	if len(p.UnknownDistro) > 0 {
 		unknown := make(map[string]int)
-		for _, file := range p.UnknownDistro {
-			distro := strings.Split(file.Name(), "/")[0]
+		for _, obj := range p.UnknownDistro {
+			distro := strings.Split(obj.Key, "/")[0]
 			unknown[distro] += 1
 		}
 		for distro, ct := range unknown {
@@ -483,8 +380,8 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 	}
 	if len(p.UnknownExtension) > 0 {
 		unknown := make(map[string]int)
-		for _, file := range p.UnknownExtension {
-			ext := filepath.Ext(file.Name())
+		for _, obj := range p.UnknownExtension {
+			ext := filepath.Ext(obj.Key)
 			unknown[ext] += 1
 		}
 		for ext, ct := range unknown {
@@ -493,8 +390,8 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 	}
 	if len(p.WrongEpoch) > 0 {
 		wrong := make(map[int]int)
-		for _, file := range p.WrongEpoch {
-			epoch := epochFromFilename(file.Name())
+		for _, obj := range p.WrongEpoch {
+			epoch := epochFromFilename(obj.Key)
 			wrong[epoch] += 1
 		}
 		for epoch, ct := range wrong {
@@ -512,10 +409,10 @@ func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[stri
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	fmt.Printf("Deleting...\n")
-	count := up.deleteFiles(p.Corrupted, 0, total)
-	count = up.deleteFiles(p.UnknownDistro, count, total)
-	count = up.deleteFiles(p.UnknownExtension, count, total)
-	up.deleteFiles(p.WrongEpoch, count, total)
+	count := up.ls.DeleteFiles(p.Corrupted, 0, total)
+	count = up.ls.DeleteFiles(p.UnknownDistro, count, total)
+	count = up.ls.DeleteFiles(p.UnknownExtension, count, total)
+	up.ls.DeleteFiles(p.WrongEpoch, count, total)
 	fmt.Printf("Done!\n")
 }
 
@@ -529,34 +426,4 @@ func epochFromFilename(filename string) int {
 		panic(err)
 	}
 	return epoch
-}
-
-func (up *Uploader) deleteFiles(files []*b2.Object, start, total int) int {
-	var jobs = make(chan *b2.Object)
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-	for w := 0; w < up.downloadThreads; w++ {
-		wg.Add(1)
-		go func(w int, jobs <-chan *b2.Object, wg *sync.WaitGroup) {
-			defer wg.Done()
-			for file := range jobs {
-				if err := file.Delete(up.ctx); err != nil {
-					panic(err)
-				}
-				mutex.Lock()
-				start += 1
-				if start%1000 == 0 {
-					fmt.Printf("% 6d / % 6d\n", start, total)
-				}
-				mutex.Unlock()
-			}
-		}(w, jobs, &wg)
-	}
-	for _, file := range files {
-		jobs <- file
-	}
-	close(jobs)
-	wg.Wait()
-
-	return start
 }

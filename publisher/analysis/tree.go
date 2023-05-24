@@ -61,22 +61,12 @@ func (d Directory) MarshalJSON() ([]byte, error) {
 }
 
 type File struct {
-	Size   int64
-	SHA256 [32]byte
-
-	localPath string
+	Size      int64
+	SHA256    [32]byte
+	LocalPath string
 }
 
 func (f File) isAnINode() {}
-
-// Open opens the file for reading.
-func (f File) Open() *os.File {
-	handle, err := os.Open(f.localPath)
-	if err != nil {
-		panic(err)
-	}
-	return handle
-}
 
 func (f File) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
@@ -160,7 +150,7 @@ func constructTree(dir string) Directory {
 			node = obj
 		} else if info.Mode().IsRegular() {
 			var obj = File{
-				localPath: path,
+				LocalPath: path,
 				Size:      info.Size(),
 			}
 			h := sha256.New()
