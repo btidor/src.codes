@@ -27,7 +27,7 @@ RUN apt update -q && \
         libgoogle-perftools-dev llvm
 
 # Install Go
-RUN (curl -sL https://go.dev/dl/go1.20.4.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://go.dev/dl/go1.21.0.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust

@@ -1,5 +1,5 @@
 ### Build grep
-FROM golang:1.20 as grep
+FROM golang:1.21 as grep
 ARG COMMIT
 
 WORKDIR /go/src/app
@@ -9,7 +9,7 @@ RUN go get -d -v ./...
 RUN CGO_ENABLED=0 go build -v -o /go/build/ -ldflags "-X main.commit=${COMMIT}" ./...
 
 ### Build fzf
-FROM rust:1.69 as fzf
+FROM rust:1.70 as fzf
 ARG COMMIT
 
 WORKDIR /usr/src/myapp
