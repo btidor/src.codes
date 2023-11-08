@@ -4,9 +4,13 @@
 		"dockerfile": "Dockerfile"
 	},
 	"remoteUser": "vscode",
-	"extensions": [
-		"golang.go",
-		"bungcip.better-toml",
-		"rust-lang.rust-analyzer"
-	]
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"bungcip.better-toml",
+				"rust-lang.rust-analyzer"
+			]
+		}
+	}
 }
