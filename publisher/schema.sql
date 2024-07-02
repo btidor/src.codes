@@ -3,14 +3,11 @@
 -- same package appears in different distributions, each distro gets its own row
 -- too.)
 CREATE TABLE package_versions (
-    id              INT NOT NULL AUTO_INCREMENT,
+    id              SERIAL NOT NULL,
 
     distro          VARCHAR(32) NOT NULL,
     pkg_name        VARCHAR(255) NOT NULL,
     pkg_version     VARCHAR(255) NOT NULL,
-
-    -- The (first) date we processed the package version.
-    processed_at    TIMESTAMP DEFAULT UTC_TIMESTAMP(),
 
     -- The epoch represents which version of the archiver last processed the
     -- package. (It's also included in the index filenames on `ls` and `meta`).
@@ -18,9 +15,11 @@ CREATE TABLE package_versions (
     -- reprocess old packages and bump their epoch.
     sc_epoch        INT NOT NULL,
 
-    PRIMARY KEY (id),
-    UNIQUE INDEX package_version (distro, pkg_name, pkg_version)
+    PRIMARY KEY (id)
 );
+
+CREATE UNIQUE INDEX package_version
+ON package_versions (distro, pkg_name, pkg_version);
 
 -- The `distribution_contents` table mirrors the contents of the Sources file
 -- published by each distribution. It lists the latest version of each package
@@ -28,15 +27,16 @@ CREATE TABLE package_versions (
 -- removed from the distribution. This table gets re-written as packages are
 -- updated, added and removed.
 CREATE TABLE distribution_contents (
-    id              INT NOT NULL AUTO_INCREMENT,
+    id              SERIAL NOT NULL,
 
     distro          VARCHAR(32) NOT NULL,
     pkg_name        VARCHAR(255) NOT NULL,
     current         INT NOT NULL, -- foreign key to package_versions
 
-    PRIMARY KEY (id),
-    UNIQUE INDEX package (distro, pkg_name)
+    PRIMARY KEY (id)
 );
+
+CREATE UNIQUE INDEX package on distribution_contents (distro, pkg_name);
 
 -- The `files` table tracks the files uploaded to B2. We check this table to
 -- avoid uploading the same file multiple times. This table takes up the vast
@@ -45,6 +45,6 @@ CREATE TABLE distribution_contents (
 -- hash, so if two files have a collision in the first 64 bits, we'll skip
 -- uploading one of the two and requests to retrieve it will 404. Sorry!)
 CREATE TABLE files (
-    short_hash      BINARY(8) NOT NULL,
+    short_hash      BIGINT NOT NULL,
     PRIMARY KEY (short_hash)
 );

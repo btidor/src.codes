@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
 type Database struct {
@@ -12,7 +12,7 @@ type Database struct {
 }
 
 func Connect(conn string, batchSize int) (*Database, error) {
-	db, err := sql.Open("mysql", conn)
+	db, err := sql.Open("pgx", conn)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,7 @@
 package database
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
@@ -18,8 +18,9 @@ type PackageVersion struct {
 func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 	_, err := db.Exec(
 		"INSERT INTO package_versions (distro, pkg_name, pkg_version, sc_epoch)"+
-			" VALUES (?, ?, ?, ?)"+
-			" ON DUPLICATE KEY UPDATE sc_epoch = VALUES (sc_epoch)",
+			" VALUES ($1, $2, $3, $4)"+
+			" ON CONFLICT (distro, pkg_name, pkg_version)"+
+			" DO UPDATE SET sc_epoch = EXCLUDED.sc_epoch",
 		a.Pkg.Source.Distro, a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
 	)
 	if err != nil {
@@ -30,7 +31,7 @@ func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 	var id int64
 	row := db.QueryRow(
 		"SELECT id FROM package_versions WHERE"+
-			" distro = ? AND pkg_name = ? AND pkg_version = ?",
+			" distro = $1 AND pkg_name = $2 AND pkg_version = $3",
 		a.Pkg.Source.Distro, a.Pkg.Name, a.Pkg.Version,
 	)
 	if err := row.Scan(&id); err != nil {
@@ -54,21 +55,19 @@ func (db *Database) ListExistingPackages(distro string, pkgs map[string]apt.Pack
 	var existing = make(map[string]PackageVersion)
 	for i := 0; i < len(plist); i += db.batchSize {
 		var values []interface{}
-		var count int = 0
+		var query string = "SELECT id, pkg_name, pkg_version, sc_epoch" +
+			" FROM package_versions" +
+			" WHERE distro = $1 AND (pkg_name, pkg_version) IN ("
+		var n int = 2
 		values = append(values, distro)
 		for j := i; j < i+db.batchSize && j < len(plist); j++ {
-			count++
 			values = append(values, plist[j].Name)
 			values = append(values, plist[j].Version)
+			query += fmt.Sprintf("($%d, $%d), ", n, n+1)
+			n += 2
 		}
-
-		rows, err := db.Query(
-			"SELECT id, pkg_name, pkg_version, sc_epoch"+
-				" FROM package_versions"+
-				" WHERE distro = ? AND (pkg_name, pkg_version) IN ("+
-				" (?, ?)"+strings.Repeat(", (?, ?)", count-1)+")",
-			values...,
-		)
+		query = query[:len(query)-2] + ")"
+		rows, err := db.Query(query, values...)
 		if err != nil {
 			panic(err)
 		}
@@ -89,7 +88,7 @@ func (db *Database) ListDistroContents(distro string) []PackageVersion {
 		"SELECT pv.id, pv.pkg_name, pv.pkg_version, pv.sc_epoch"+
 			" FROM distribution_contents dc"+
 			" JOIN package_versions pv ON dc.current = pv.id"+
-			" WHERE dc.distro = ?",
+			" WHERE dc.distro = $1",
 		distro,
 	)
 	if err != nil {
@@ -111,19 +110,18 @@ func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
 	// Ensure all packages are present in database
 	for i := 0; i < len(pvs); i += db.batchSize {
 		var values []interface{}
-		var count int = 0
+		var query string = "REPLACE INTO distribution_contents" +
+			" (distro, pkg_name, current) VALUES "
+		var n int = 1
 		for j := i; j < i+db.batchSize && j < len(pvs); j++ {
-			count++
 			values = append(values, distro)
 			values = append(values, pvs[j].Name)
 			values = append(values, pvs[j].ID)
+			query += fmt.Sprintf("($%d, $%d, $%d), ", n, n+1, n+2)
+			n += 3
 		}
-
-		_, err := db.Exec(
-			"REPLACE INTO distribution_contents (distro, pkg_name, current)"+
-				" VALUES (?, ?, ?)"+strings.Repeat(", (?, ?, ?)", count-1),
-			values...,
-		)
+		query = query[:len(query)-2]
+		_, err := db.Exec(query, values...)
 		if err != nil {
 			panic(err)
 		}
@@ -144,11 +142,12 @@ func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
 	}
 
 	if len(toDelete) > 0 {
-		_, err := db.Exec(
-			"DELETE FROM distribution_contents WHERE ID IN"+
-				" (?"+strings.Repeat(", ?", len(toDelete)-1)+")",
-			toDelete...,
-		)
+		var query string = "DELETE FROM distribution_contents WHERE ID IN ("
+		for i := range toDelete {
+			query += fmt.Sprintf("$%d, ", i+1)
+		}
+		query = query[:len(query)-2] + ")"
+		_, err := db.Exec(query, toDelete...)
 		if err != nil {
 			panic(err)
 		}
