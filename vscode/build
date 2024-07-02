@@ -6,16 +6,22 @@ shopt -s failglob
 export PROJECT_BASE="$(dirname $(dirname $(realpath $0)))"
 export BUILD_DIR="$PROJECT_BASE/_build"
 
-export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.78.2.tar.gz"
+export VSCODE_SOURCE="https://github.com/microsoft/vscode/archive/refs/tags/1.91.0.tar.gz"
+
+# Build extension
+cd "$PROJECT_BASE/extension"
+npm install
+npm run vscode:prepublish
 
 # Install VS Code build dependencies
 if [ -n "$(command -v apt)" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt install -y -q \
-    build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev \
+    build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev \
     python-is-python3
 elif [ -n "$(command -v yum)" ]; then
   yum groupinstall -y "Development Tools"
-  yum install -y libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel
+  yum install -y libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel \
+    krb5-devel
 else
   echo "Unknown package manager: can't find apt or yum"
   exit 1
@@ -28,25 +34,7 @@ if [ ! -d "$BUILD_DIR" ]; then
     tar zx --directory="$BUILD_DIR" --strip-components=1
 fi
 
-cd "$PROJECT_BASE/extension"
-npm install
-npm run vscode:prepublish
-
 cd "$BUILD_DIR"
-
-# Install yarn and dependencies
-if [ -n "$(command -v sudo)" ]; then
-  sudo npm install -g yarn
-  yarn install
-else
-  # Vercel does not have or need sudo
-  npm install -g yarn
-  yarn install
-fi
-
-# Copy in the Explorer extension (built above)
-rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
-cp -r "$PROJECT_BASE/extension" "$BUILD_DIR/extensions/distro-source-explorer"
 
 # Apply patches
 for patch in "$PROJECT_BASE"/vscode/*.patch; do
@@ -82,6 +70,20 @@ find extensions/ -maxdepth 1 -mindepth 1 -type d | \
 "$PROJECT_BASE/vscode/inject-contents" "$EXTENSION_TS" extensions.json
 
 find "$PROJECT_BASE/vscode/" -name '*.svg' -exec cp {} "$BUILD_DIR/src/vs/workbench/browser/parts/editor/media/" \;
+
+# Install yarn and dependencies
+if [ -n "$(command -v sudo)" ]; then
+  sudo npm install -g yarn
+  yarn install
+else
+  # Vercel does not have or need sudo
+  npm install -g yarn
+  yarn install
+fi
+
+# Copy in the Explorer extension (built above)
+rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
+cp -r "$PROJECT_BASE/extension" "$BUILD_DIR/extensions/distro-source-explorer"
 
 # Build VS Code; output is in $BUILD_DIR/out-vscode-web-min/
 yarn gulp vscode-web
