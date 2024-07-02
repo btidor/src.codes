@@ -7,7 +7,7 @@
   "version": "1.0.0-alpha",
   "publisher": "btidor",
   "engines": {
-    "vscode": "^1.78.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other"
@@ -55,22 +55,22 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/mocha": "^9.1.0",
-    "@types/vscode": "^1.78.0",
-    "@types/webpack-env": "^1.16.3",
-    "@typescript-eslint/eslint-plugin": "^5.10.2",
-    "@typescript-eslint/parser": "^5.10.2",
-    "@vscode/test-web": "^0.0.19",
-    "assert": "^2.0.0",
-    "eslint": "^8.8.0",
-    "mocha": "^9.2.0",
+    "@types/mocha": "^10.0.7",
+    "@types/vscode": "^1.90.0",
+    "@types/webpack-env": "^1.18.5",
+    "@typescript-eslint/eslint-plugin": "^7.15.0",
+    "@typescript-eslint/parser": "^7.15.0",
+    "@vscode/test-web": "^0.0.55",
+    "assert": "^2.1.0",
+    "eslint": "^8.56.0",
+    "mocha": "^10.5.1",
     "process": "^0.11.10",
-    "ts-loader": "^9.2.6",
-    "typescript": "^4.5.4",
-    "webpack": "^5.68.0",
-    "webpack-cli": "^4.9.2"
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.3",
+    "webpack": "^5.92.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "axios": "^0.25.0"
+    "axios": "^1.7.2"
   }
 }

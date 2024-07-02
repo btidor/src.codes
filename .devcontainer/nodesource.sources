@@ -1,4 +1,4 @@
-Types: deb deb-src
+Types: deb
 URIs: https://deb.nodesource.com/node_20.x
 Suites: nodistro
 Components: main
