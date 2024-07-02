@@ -1,13 +1,13 @@
 # syntax = btidor/syntax
 
-FROM mcr.microsoft.com/vscode/devcontainers/base:0-jammy
+FROM mcr.microsoft.com/devcontainers/base:noble
 
 COPY *.sources /etc/apt/sources.list.d/
 
 # Pre-install VS Code build dependencies (used by vscode/build) so they're
 # cached in a layer.
-ADD --apt build-essential g++ libx11-dev libxkbfile-dev \
-    libsecret-1-dev python-is-python3
+ADD --apt build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev \
+    python-is-python3
 
 # Install Node and npm packages for extension development. VS Code uses Node
 # 18.x: https://github.com/microsoft/vscode/wiki/How-to-Contribute
@@ -16,10 +16,12 @@ RUN npm install -g npm yo generator-code
 
 # Install development packages
 ADD --apt graphviz linux-tools-generic google-perftools libgoogle-perftools-dev \
-    llvm gnuplot-nox musl-tools universal-ctags
+    llvm gnuplot-nox musl-tools universal-ctags postgresql-client
+
+RUN curl -L https://fly.io/install.sh | FLYCTL_INSTALL=/usr/local sh
 
 # Install Go
-RUN (curl -sL https://go.dev/dl/go1.21.4.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://go.dev/dl/go1.22.4.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust
