@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/btidor/src.codes/internal"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/google/shlex"
@@ -127,7 +127,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if yaml.Unmarshal(contents, &meta); err != nil {
+	if err := yaml.Unmarshal(contents, &meta); err != nil {
 		panic(err)
 	}
 
@@ -217,7 +217,7 @@ func main() {
 func (z *Zero) Initialize(ctx context.Context) {
 	// Clean up leftover Docker containers
 	containers, err := z.Docker.ContainerList(
-		ctx, types.ContainerListOptions{})
+		ctx, container.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -293,7 +293,7 @@ func (z *Zero) ServeAdmin(w http.ResponseWriter, r *http.Request) {
 	case "/":
 		fmt.Fprintf(w, "Hello from zerokube@%s!\n\nRunning Containers:\n", commit)
 		containers, err := z.Docker.ContainerList(
-			r.Context(), types.ContainerListOptions{})
+			r.Context(), container.ListOptions{})
 		if err != nil {
 			panic(err)
 		}
@@ -408,7 +408,7 @@ func (z *Zero) StartService(ctx context.Context, slug string) string {
 
 	// Pull latest image
 	reader, err := z.Docker.ImagePull(
-		ctx, config.Image, types.ImagePullOptions{})
+		ctx, config.Image, image.PullOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -427,7 +427,7 @@ func (z *Zero) StartService(ctx context.Context, slug string) string {
 		panic(err)
 	}
 
-	err = z.Docker.ContainerStart(ctx, name, types.ContainerStartOptions{})
+	err = z.Docker.ContainerStart(ctx, name, container.StartOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -517,7 +517,7 @@ func (z *Zero) RunHook(ctx context.Context, slug string, hook string, config Con
 
 	// Pull latest image
 	reader, err := z.Docker.ImagePull(
-		ctx, config.Image, types.ImagePullOptions{})
+		ctx, config.Image, image.PullOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -536,7 +536,7 @@ func (z *Zero) RunHook(ctx context.Context, slug string, hook string, config Con
 		panic(err)
 	}
 
-	err = z.Docker.ContainerStart(ctx, name, types.ContainerStartOptions{})
+	err = z.Docker.ContainerStart(ctx, name, container.StartOptions{})
 	if err != nil {
 		panic(err)
 	}

@@ -33,7 +33,7 @@ func (g *Grep) Reader(r io.Reader, filename string) (int, error) {
 	n, err := io.ReadFull(r, buf[:cap(buf)])
 	if err == nil {
 		return 0, fmt.Errorf("cannot search file %q, larger than 1M", filename)
-	} else if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	} else if err != io.EOF && err != io.ErrUnexpectedEOF {
 		return 0, err
 	}
 	buf = buf[:n]
