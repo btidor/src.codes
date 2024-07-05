@@ -13,6 +13,7 @@ zerokube/zerokube
 perf.data*
 
 # Local cache
+*.db
 *.fzf
 /_data/
 

@@ -21,7 +21,7 @@ ADD --apt graphviz linux-tools-generic google-perftools libgoogle-perftools-dev 
 RUN curl -L https://fly.io/install.sh | FLYCTL_INSTALL=/usr/local sh
 
 # Install Go
-RUN (curl -sL https://go.dev/dl/go1.22.4.linux-amd64.tar.gz | tar xzC /usr/local) && \
+RUN (curl -sL https://go.dev/dl/go1.22.5.linux-amd64.tar.gz | tar xzC /usr/local) && \
     (echo 'PATH=$PATH:/usr/local/go/bin' >> /home/vscode/.profile)
 
 # Install Rust

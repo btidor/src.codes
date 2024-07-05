@@ -3,7 +3,7 @@
 -- same package appears in different distributions, each distro gets its own row
 -- too.)
 CREATE TABLE package_versions (
-    id              SERIAL NOT NULL,
+    id              INTEGER PRIMARY KEY,
 
     distro          VARCHAR(32) NOT NULL,
     pkg_name        VARCHAR(255) NOT NULL,
@@ -13,9 +13,7 @@ CREATE TABLE package_versions (
     -- package. (It's also included in the index filenames on `ls` and `meta`).
     -- If the archiver is updated to produce new indexes or formats, we'll
     -- reprocess old packages and bump their epoch.
-    sc_epoch        INT NOT NULL,
-
-    PRIMARY KEY (id)
+    sc_epoch        INT NOT NULL
 );
 
 CREATE UNIQUE INDEX package_version
@@ -27,13 +25,11 @@ ON package_versions (distro, pkg_name, pkg_version);
 -- removed from the distribution. This table gets re-written as packages are
 -- updated, added and removed.
 CREATE TABLE distribution_contents (
-    id              SERIAL NOT NULL,
+    id              INTEGER PRIMARY KEY,
 
     distro          VARCHAR(32) NOT NULL,
     pkg_name        VARCHAR(255) NOT NULL,
-    current         INT NOT NULL, -- foreign key to package_versions
-
-    PRIMARY KEY (id)
+    current         INT NOT NULL  -- foreign key to package_versions
 );
 
 CREATE UNIQUE INDEX package on distribution_contents (distro, pkg_name);
@@ -45,6 +41,5 @@ CREATE UNIQUE INDEX package on distribution_contents (distro, pkg_name);
 -- hash, so if two files have a collision in the first 64 bits, we'll skip
 -- uploading one of the two and requests to retrieve it will 404. Sorry!)
 CREATE TABLE files (
-    short_hash      BIGINT NOT NULL,
-    PRIMARY KEY (short_hash)
+    short_hash      BIGINT PRIMARY KEY
 );

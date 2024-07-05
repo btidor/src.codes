@@ -24,11 +24,13 @@ import (
 
 const (
 	configPath      string = "distributions.toml"
-	pkgThreads      int    = 8
-	uploadThreads   int    = 4
-	downloadThreads int    = 16
-	dbBatchSize     int    = 2048
-	checkpointLimit int    = 32
+	pkgThreads      int    = 32
+	uploadThreads   int    = 32
+	downloadThreads int    = 32
+	checkpointLimit int    = 1024
+
+	dbBatchSize int    = 2048
+	dbFilename  string = "database.db"
 
 	// When reindexPkgs mode is on, all packages are reprocessed and index files are
 	// recomputed and reuploaded. To save on database reads, we do not run file
@@ -48,12 +50,7 @@ func main() {
 
 	// Get a database handle. Requires the DATABASE env var to contain a MySQL
 	// connection string.
-	var conn = os.Getenv("DATABASE")
-	if conn == "" {
-		err := fmt.Errorf("expected connection string in DATABASE")
-		panic(err)
-	}
-	db, err = database.Connect(conn, dbBatchSize)
+	db, err = database.Connect(dbFilename, dbBatchSize)
 	if err != nil {
 		panic(err)
 	}
