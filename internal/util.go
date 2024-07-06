@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 )
 
 // URLMustParse parses a URL and panics if an error occurs. It's useful for
@@ -32,16 +31,6 @@ func URLWithPath(u *url.URL, s ...string) *url.URL {
 	res := *u
 	res.Path = path.Join(c...)
 	return &res
-}
-
-// Workaround: Backblaze incorrectly treats a "+" in the path component as a
-// space, so we need to escape them.
-func URLWithPathForBackblaze(u *url.URL, s ...string) *url.URL {
-	// Debugging FYI: Url.String() will ignore RawPath unless it's a valid
-	// encoding of Path. See: https://github.com/golang/go/issues/17340
-	res := URLWithPath(u, s...)
-	res.RawPath = strings.ReplaceAll(res.Path, "+", "%2B")
-	return res
 }
 
 // HTTPError is for HTTP servers. It responds with the provided status code and

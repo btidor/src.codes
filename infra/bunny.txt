@@ -1,0 +1,22 @@
+Bunny.net Bucket Configuration
+------------------------------
+
+Bucket Headers
+ * ls:    Access-Control-Allow-Origin: *
+          Cache-Control: public, max-age=604800, immutable
+
+          Content-Encoding: gzip
+            -> *.csi, *.json, *.symbols, *.tags AND status 200
+
+ * cat:   Access-Control-Allow-Origin: *
+          Cache-Control: public, max-age=604800, immutable
+
+          Content-Encoding: gzip
+            -> */symbols.txt AND status 200
+
+ * meta:  Access-Control-Allow-Origin: *
+          Cache-Control: public, max-age=300
+
+Index File  ->  index.html
+404 File    ->  404.html
+Robots File ->  robots.txt

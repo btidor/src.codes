@@ -16,6 +16,3 @@ perf.data*
 *.db
 *.fzf
 /_data/
-
-# For Vercel
-.vercel

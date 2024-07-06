@@ -2,7 +2,6 @@
     "files.exclude": {
         "_build": true,
         "_data": true,
-        ".vercel": true,
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,
@@ -11,7 +10,6 @@
     "files.watcherExclude": {
         "_build": true,
         "_data": true,
-        ".vercel": true,
         "extension/node_modules": true,
         "extension/dist": true,
         "fzf/target": true,

@@ -14,18 +14,9 @@ npm install
 npm run vscode:prepublish
 
 # Install VS Code build dependencies
-if [ -n "$(command -v apt)" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt install -y -q \
-    build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev \
-    python-is-python3
-elif [ -n "$(command -v yum)" ]; then
-  yum groupinstall -y "Development Tools"
-  yum install -y libX11-devel.x86_64 libxkbfile-devel.x86_64 libsecret-devel \
-    krb5-devel
-else
-  echo "Unknown package manager: can't find apt or yum"
-  exit 1
-fi
+sudo DEBIAN_FRONTEND=noninteractive apt install -y -q \
+  build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev \
+  python-is-python3
 
 # Download VS Code
 if [ ! -d "$BUILD_DIR" ]; then
@@ -72,14 +63,8 @@ find extensions/ -maxdepth 1 -mindepth 1 -type d | \
 find "$PROJECT_BASE/vscode/" -name '*.svg' -exec cp {} "$BUILD_DIR/src/vs/workbench/browser/parts/editor/media/" \;
 
 # Install yarn and dependencies
-if [ -n "$(command -v sudo)" ]; then
-  sudo npm install -g yarn
-  yarn install
-else
-  # Vercel does not have or need sudo
-  npm install -g yarn
-  yarn install
-fi
+sudo npm install -g yarn
+yarn install
 
 # Copy in the Explorer extension (built above)
 rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
@@ -90,8 +75,6 @@ yarn gulp vscode-web
 yarn gulp minify-vscode-web
 
 cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-web-min/"
+cp "$PROJECT_BASE/vscode/_headers" "$BUILD_DIR/out-vscode-web-min/"
 cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-web-min/"
 cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-web-min/remote"
-
-# Vercel chokes on broken symlinks; remove them here
-find "$BUILD_DIR" -xtype l | xargs rm -f

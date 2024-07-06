@@ -1,7 +1,6 @@
 package upload
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/hex"
@@ -9,29 +8,18 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"path"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 
-	"github.com/btidor/src.codes/internal"
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
 	"github.com/btidor/src.codes/publisher/apt"
 	"github.com/btidor/src.codes/publisher/database"
-	"github.com/minio/minio-go/v7"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 const emptySHA string = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-var lsBase = internal.URLMustParse("https://ls.src.codes")
-
-var epochExtractor = regexp.MustCompile(`:([0-9]+)(\.[a-z0-9]+)+$`)
 
 type Uploader struct {
 	ls   *Bucket
@@ -66,9 +54,12 @@ func (up *Uploader) UploadFile(f analysis.File) {
 		err := fmt.Errorf("unexpected empty file %#v", f)
 		panic(err)
 	}
+	file, err := os.Open(f.LocalPath)
+	if err != nil {
+		panic(err)
+	}
 	remote := path.Join(hex[0:2], hex[0:4], hex)
-
-	if err := up.cat.PutFile(remote, f.LocalPath, "", ""); err != nil {
+	if err := up.cat.Put(remote, file, ""); err != nil {
 		panic(err)
 	}
 }
@@ -78,14 +69,13 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	if err != nil {
 		panic(err)
 	}
+
 	var in bytes.Buffer
 	zw := gzip.NewWriter(&in)
-
 	_, err = zw.Write(data)
 	if err != nil {
 		panic(err)
 	}
-
 	if err := zw.Close(); err != nil {
 		panic(err)
 	}
@@ -94,8 +84,7 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 		"%s_%s:%d.json", a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(a.Pkg.Source.Distro, a.Pkg.Name, filename)
-
-	if err := up.ls.PutBuffer(remote, &in, "application/json", "gzip"); err != nil {
+	if err := up.ls.Put(remote, &in, "application/json"); err != nil {
 		panic(err)
 	}
 }
@@ -110,8 +99,7 @@ func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf analysis.Node) {
 		"%s_%s:%d.fzf", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-
-	if err := up.ls.PutBytes(remote, data, "", ""); err != nil {
+	if err := up.ls.Put(remote, bytes.NewBuffer(data), ""); err != nil {
 		panic(err)
 	}
 }
@@ -125,16 +113,20 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 	}
 
 	var wg sync.WaitGroup
-	jobs := make(chan *url.URL)
+	jobs := make(chan string)
 	results := make(chan *bytes.Buffer, 16)
 	for w := 0; w < up.downloadThreads; w++ {
 		wg.Add(1)
-		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
+		go func(w int, jobs <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
-			for u := range jobs {
-				log.Printf("Downloading %s\n", u.String())
-				results <- internal.DownloadFile(u)
-				log.Printf("  done %s\n", u.String())
+			for path := range jobs {
+				log.Printf("Downloading %s\n", path)
+				data, err := up.ls.Get(path)
+				if err != nil {
+					panic(err)
+				}
+				results <- data
+				log.Printf("  done %s\n", path)
 			}
 		}(w, jobs, &wg)
 	}
@@ -152,12 +144,9 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 	}()
 
 	for _, pv := range pkgvers {
-		jobs <- internal.URLWithPathForBackblaze(
-			lsBase, distro, pv.Name,
-			fmt.Sprintf(
-				"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
-			),
-		)
+		jobs <- path.Join(distro, pv.Name, fmt.Sprintf(
+			"%s_%s:%d.fzf", pv.Name, pv.Version, pv.Epoch,
+		))
 	}
 
 	close(jobs)
@@ -166,8 +155,7 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 	wg2.Wait()
 
 	remote := path.Join(distro, "paths.fzf")
-
-	if err := up.meta.PutBuffer(remote, consolidated, "", ""); err != nil {
+	if err := up.meta.Put(remote, consolidated, ""); err != nil {
 		panic(err)
 	}
 }
@@ -175,12 +163,10 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 	var in bytes.Buffer
 	zw := gzip.NewWriter(&in)
-
 	_, err := zw.Write(ctags)
 	if err != nil {
 		panic(err)
 	}
-
 	if err := zw.Close(); err != nil {
 		panic(err)
 	}
@@ -189,8 +175,7 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 		"%s_%s:%d.tags", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-
-	if err := up.ls.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
+	if err := up.ls.Put(remote, &in, "text/plain"); err != nil {
 		panic(err)
 	}
 }
@@ -198,12 +183,10 @@ func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
 func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
 	var in bytes.Buffer
 	zw := gzip.NewWriter(&in)
-
 	_, err := zw.Write(symbols)
 	if err != nil {
 		panic(err)
 	}
-
 	if err := zw.Close(); err != nil {
 		panic(err)
 	}
@@ -212,8 +195,7 @@ func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
 		"%s_%s:%d.symbols", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-
-	if err := up.ls.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
+	if err := up.ls.Put(remote, &in, "text/plain"); err != nil {
 		panic(err)
 	}
 }
@@ -225,17 +207,26 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}
 
 	var wg sync.WaitGroup
-	jobs := make(chan *url.URL)
-	results := make(chan *bytes.Buffer, 16)
+	jobs := make(chan string)
+	results := make(chan bytes.Buffer, 16)
 	for w := 0; w < up.downloadThreads; w++ {
 		wg.Add(1)
-		go func(w int, jobs <-chan *url.URL, wg *sync.WaitGroup) {
+		go func(w int, jobs <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
-			for u := range jobs {
-				log.Printf("Downloading %s\n", u.String())
-				raw := internal.DownloadFile(u)
-				results <- raw
-				log.Printf("  done %s\n", u.String())
+			for path := range jobs {
+				log.Printf("Downloading %s\n", path)
+				data, err := up.ls.Get(path)
+				if err != nil {
+					panic(err)
+				}
+				rd, err := gzip.NewReader(data)
+				if err != nil {
+					panic(err)
+				}
+				var out bytes.Buffer
+				io.Copy(&out, rd)
+				results <- out
+				log.Printf("  done %s\n", path)
 			}
 		}(w, jobs, &wg)
 	}
@@ -248,7 +239,7 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	go func() {
 		defer wg2.Done()
 		for symbols := range results {
-			_, err := io.Copy(zw, symbols)
+			_, err := io.Copy(zw, &symbols)
 			if err != nil {
 				panic(err)
 			}
@@ -256,12 +247,9 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}()
 
 	for _, pv := range pkgvers {
-		jobs <- internal.URLWithPathForBackblaze(
-			lsBase, distro, pv.Name,
-			fmt.Sprintf(
-				"%s_%s:%d.symbols", pv.Name, pv.Version, pv.Epoch,
-			),
-		)
+		jobs <- path.Join(distro, pv.Name, fmt.Sprintf(
+			"%s_%s:%d.symbols", pv.Name, pv.Version, pv.Epoch,
+		))
 	}
 
 	close(jobs)
@@ -274,7 +262,7 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	}
 
 	remote := path.Join(distro, "symbols.txt")
-	if err := up.meta.PutBuffer(remote, &in, "text/plain", "gzip"); err != nil {
+	if err := up.meta.Put(remote, &in, "text/plain"); err != nil {
 		panic(err)
 	}
 }
@@ -282,12 +270,10 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, sourcetar []byte) {
 	var in bytes.Buffer
 	zw := gzip.NewWriter(&in)
-
 	_, err := zw.Write(codesearch)
 	if err != nil {
 		panic(err)
 	}
-
 	if err := zw.Close(); err != nil {
 		panic(err)
 	}
@@ -296,8 +282,7 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, so
 		"%s_%s:%d.csi", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-
-	if err := up.ls.PutBuffer(remote, &in, "", "gzip"); err != nil {
+	if err := up.ls.Put(remote, &in, ""); err != nil {
 		panic(err)
 	}
 
@@ -305,7 +290,7 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, so
 		"%s_%s:%d.tar.zst", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote = path.Join(pkg.Source.Distro, pkg.Name, filename)
-	if err := up.ls.PutBytes(remote, sourcetar, "", ""); err != nil {
+	if err := up.ls.Put(remote, bytes.NewBuffer(sourcetar), ""); err != nil {
 		panic(err)
 	}
 }
@@ -321,112 +306,12 @@ func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageV
 			Epoch:   pv.Epoch,
 		}
 	}
-
 	data, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {
 		panic(err)
 	}
-
 	remote := path.Join(distro, "packages.json")
-
-	if err := up.meta.PutBytes(remote, data, "", ""); err != nil {
+	if err := up.meta.Put(remote, bytes.NewBuffer(data), ""); err != nil {
 		panic(err)
 	}
-}
-
-type pruningCategories struct {
-	Corrupted        []*minio.ObjectInfo
-	UnknownDistro    []*minio.ObjectInfo
-	UnknownExtension []*minio.ObjectInfo
-	WrongEpoch       []*minio.ObjectInfo
-	Current          int
-}
-
-func (up *Uploader) PruneLs(knownSuffixes map[string]bool, knownDistros map[string]bool) {
-	var p pruningCategories
-
-	for obj := range up.ls.ListObjects() {
-		if obj.Err != nil {
-			panic(obj.Err)
-		}
-
-		parts := strings.Split(obj.Key, "/")
-		if obj.Key == "robots.txt" {
-			// skip
-		} else if len(parts) != 3 {
-			p.Corrupted = append(p.Corrupted, &obj)
-		} else if !knownDistros[parts[0]] {
-			p.UnknownDistro = append(p.UnknownDistro, &obj)
-		} else if !knownSuffixes[filepath.Ext(obj.Key)] {
-			p.UnknownExtension = append(p.UnknownExtension, &obj)
-		} else if epochFromFilename(obj.Key) != publisher.Epoch {
-			p.WrongEpoch = append(p.WrongEpoch, &obj)
-		} else {
-			p.Current += 1
-		}
-	}
-
-	if ct := len(p.Corrupted); ct > 0 {
-		log.Printf("Corrupted:\t% 6d\t%s...\n", ct, p.Corrupted[0].Key)
-	}
-	if len(p.UnknownDistro) > 0 {
-		unknown := make(map[string]int)
-		for _, obj := range p.UnknownDistro {
-			distro := strings.Split(obj.Key, "/")[0]
-			unknown[distro] += 1
-		}
-		for distro, ct := range unknown {
-			log.Printf("Unknown Distro:\t% 6d\t%s\n", ct, distro)
-		}
-	}
-	if len(p.UnknownExtension) > 0 {
-		unknown := make(map[string]int)
-		for _, obj := range p.UnknownExtension {
-			ext := filepath.Ext(obj.Key)
-			unknown[ext] += 1
-		}
-		for ext, ct := range unknown {
-			log.Printf("Unknown Extn:\t% 6d\t%s\n", ct, ext)
-		}
-	}
-	if len(p.WrongEpoch) > 0 {
-		wrong := make(map[int]int)
-		for _, obj := range p.WrongEpoch {
-			epoch := epochFromFilename(obj.Key)
-			wrong[epoch] += 1
-		}
-		for epoch, ct := range wrong {
-			log.Printf("Wrong Epoch:\t% 6d\t%d\n", ct, epoch)
-		}
-	}
-	log.Println()
-	log.Printf("To Keep:\t% 6d\n", p.Current)
-	log.Println()
-
-	total := len(p.Corrupted) + len(p.UnknownDistro) + len(p.UnknownExtension) + len(p.WrongEpoch)
-	if total == 0 {
-		log.Printf("Nothing to do!\n")
-		return
-	}
-	log.Printf("Press ENTER to delete %d files!\n", total)
-	bufio.NewReader(os.Stdin).ReadString('\n')
-
-	log.Printf("Deleting...\n")
-	count := up.ls.DeleteFiles(p.Corrupted, 0, total)
-	count = up.ls.DeleteFiles(p.UnknownDistro, count, total)
-	count = up.ls.DeleteFiles(p.UnknownExtension, count, total)
-	up.ls.DeleteFiles(p.WrongEpoch, count, total)
-	log.Printf("Done!\n")
-}
-
-func epochFromFilename(filename string) int {
-	parts := epochExtractor.FindStringSubmatch(filename)
-	if parts == nil || len(parts) < 2 {
-		panic("could not match filename: " + filename)
-	}
-	epoch, err := strconv.Atoi(parts[1])
-	if err != nil {
-		panic(err)
-	}
-	return epoch
 }

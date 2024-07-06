@@ -25,11 +25,11 @@ import (
 const (
 	configPath      string = "distributions.toml"
 	pkgThreads      int    = 32
-	uploadThreads   int    = 32
-	downloadThreads int    = 32
+	uploadThreads   int    = 16
+	downloadThreads int    = 16
 	checkpointLimit int    = 1024
 
-	dbBatchSize int    = 2048
+	dbBatchSize int    = 1024
 	dbFilename  string = "database.db"
 
 	// When reindexPkgs mode is on, all packages are reprocessed and index files are
@@ -40,16 +40,13 @@ const (
 	reindexDistro bool = false
 )
 
-var knownExtns = []string{".csi", ".fzf", ".json", ".symbols", ".tags", ".zst"}
-
 var db *database.Database
 var up *upload.Uploader
 
 func main() {
 	var err error
 
-	// Get a database handle. Requires the DATABASE env var to contain a MySQL
-	// connection string.
+	// Get a database handle.
 	db, err = database.Connect(dbFilename, dbBatchSize)
 	if err != nil {
 		panic(err)
@@ -57,13 +54,12 @@ func main() {
 	defer db.Close()
 	log.Println("\u2713 Database")
 
-	// Connect to Backblaze B2. Requires the env vars listed below to contain a
-	// "keyId:applicationKey:bucketName" tuple.
-	up, err = upload.NewUploader("B2_LS_KEY", "B2_CAT_KEY", "B2_META_KEY", downloadThreads)
+	// Connect to storage CDN.
+	up, err = upload.NewUploader("CDN_LS_KEY", "CDN_CAT_KEY", "CDN_META_KEY", downloadThreads)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("\u2713 Backblaze")
+	log.Println("\u2713 Storage CDN")
 
 	// Read config file from `../distributions.toml`
 	var rawConfig map[string]internal.ConfigEntry
@@ -99,27 +95,14 @@ func main() {
 	log.Println()
 
 	// Run!
-	if len(os.Args) > 1 && os.Args[1] == "prune" {
-		knownDistros := make(map[string]bool)
-		for _, distro := range config {
-			knownDistros[distro.Name] = true
+	var errored = false
+	for _, distro := range config {
+		if processDistro(distro) {
+			errored = true
 		}
-		knownSuffixesMap := make(map[string]bool)
-		for _, suff := range knownExtns {
-			knownSuffixesMap[suff] = true
-		}
-		up.PruneLs(knownSuffixesMap, knownDistros)
-		// TODO: also prune `cat` and `meta`
-	} else {
-		var errored = false
-		for _, distro := range config {
-			if processDistro(distro) {
-				errored = true
-			}
-		}
-		if errored {
-			os.Exit(1)
-		}
+	}
+	if errored {
+		os.Exit(1)
 	}
 }
 

@@ -37,15 +37,6 @@ func TestURLWithPath(t *testing.T) {
 	}
 }
 
-func TestURLWithPathForBackblaze(t *testing.T) {
-	base := URLMustParse("https://src.codes/hello")
-
-	u := URLWithPathForBackblaze(base, "+", "bar.txt")
-	if u.String() != "https://src.codes/hello/%2B/bar.txt" {
-		t.Errorf("Mis-joined URL: %#v", u)
-	}
-}
-
 func TestHTTPError(t *testing.T) {
 	req1 := httptest.NewRequest("GET", "http://example.com/foo", nil)
 	w1 := httptest.NewRecorder()

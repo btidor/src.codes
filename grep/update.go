@@ -57,7 +57,7 @@ func updateDistro(distro string) {
 }
 
 func listPackages(distro string) []Package {
-	u := internal.URLWithPathForBackblaze(
+	u := internal.URLWithPath(
 		metaBase, distro, "packages.json",
 	)
 	raw := internal.DownloadFile(u)
@@ -134,7 +134,7 @@ func (p Package) Download(base, ext string) {
 	local := filepath.Join(p.LocalDir(base), p.Filename(ext))
 	if _, err := os.Stat(local); err != nil {
 		// File not yet downloaded
-		remote := internal.URLWithPathForBackblaze(
+		remote := internal.URLWithPath(
 			lsBase, p.Distro, p.Name, p.Filename(ext),
 		)
 		internal.SaveFile(local, remote)

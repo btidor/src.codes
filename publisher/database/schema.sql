@@ -34,8 +34,8 @@ CREATE TABLE distribution_contents (
 
 CREATE UNIQUE INDEX package on distribution_contents (distro, pkg_name);
 
--- The `files` table tracks the files uploaded to B2. We check this table to
--- avoid uploading the same file multiple times. This table takes up the vast
+-- The `files` table tracks the files uploaded to storage. We check this table
+-- to avoid uploading the same file multiple times. This table takes up the vast
 -- majority of our database storage, so we avoid storing any other columns, and
 -- we truncate file hashes to 64 bits. (Files are stored under the full SHA-256
 -- hash, so if two files have a collision in the first 64 bits, we'll skip

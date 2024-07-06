@@ -2,101 +2,104 @@ package upload
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"log"
+	"io"
+	"net/url"
 	"os"
-	"strings"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type Bucket struct {
-	client     *minio.Client
-	bucketName string
+	url       *url.URL // https://HOST/ZONE
+	accessKey string
+	client    *retryablehttp.Client
 }
 
 func OpenBucket(envvar string) (*Bucket, error) {
-	config := strings.Split(os.Getenv(envvar), ":")
-	if len(config) != 4 {
-		return nil, fmt.Errorf("could not find/parse %s", envvar)
-	}
-
-	client, err := minio.New(config[0], &minio.Options{
-		Creds:  credentials.NewStaticV4(config[1], config[2], ""),
-		Secure: true,
-	})
+	url, err := url.Parse(os.Getenv(envvar))
 	if err != nil {
 		return nil, err
 	}
 
-	bucket := Bucket{client, config[3]}
+	if url.User == nil {
+		return nil, fmt.Errorf("expected password in url")
+	}
+	accessKey, ok := url.User.Password()
+	if !ok {
+		return nil, fmt.Errorf("expected password in url")
+	}
+	url.User = nil
+
+	client := retryablehttp.NewClient()
+	client.Logger = nil
+	bucket := Bucket{url, accessKey, client}
 	if err := bucket.CheckBucket(); err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &bucket, nil
 }
 
 func (b *Bucket) CheckBucket() error {
-	ok, err := b.client.BucketExists(context.Background(), b.bucketName)
+	req, err := b.newRequest("GET", nil, "/")
 	if err != nil {
 		return err
-	} else if !ok {
-		return fmt.Errorf("no such bucket: %s", b.bucketName)
 	}
-	return nil
+	return b.doRequest(req)
 }
 
-func (b *Bucket) PutFile(to string, from string, contentType, contentEncoding string) error {
-	opts := minio.PutObjectOptions{
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
+func (b *Bucket) Put(to string, reader io.Reader, contentType string) error {
+	req, err := b.newRequest("PUT", reader, to)
+	if err != nil {
+		return err
 	}
-	_, err := b.client.FPutObject(context.Background(), b.bucketName, to, from, opts)
-	return err
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	req.Header.Set("Content-Type", contentType)
+	return b.doRequest(req)
 }
 
-func (b *Bucket) PutBuffer(to string, buf *bytes.Buffer, contentType, contentEncoding string) error {
-	opts := minio.PutObjectOptions{
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
-		// Workaround for https://github.com/minio/minio-go/issues/1791
-		SendContentMd5: true,
+func (b *Bucket) Get(path string) (*bytes.Buffer, error) {
+	req, err := b.newRequest("GET", nil, path)
+	if err != nil {
+		return nil, err
 	}
-	_, err := b.client.PutObject(context.Background(), b.bucketName, to, buf,
-		int64(buf.Len()), opts)
-	return err
+
+	res, err := b.client.Do(req)
+	if err != nil {
+		return nil, err
+	} else if res.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	var buf bytes.Buffer
+	buf.ReadFrom(res.Body)
+	return &buf, nil
 }
 
-func (b *Bucket) PutBytes(to string, data []byte, contentType, contentEncoding string) error {
-	buf := bytes.NewBuffer(data)
-	return b.PutBuffer(to, buf, contentType, contentEncoding)
+func (b *Bucket) newRequest(method string, body io.Reader, parts ...string) (*retryablehttp.Request, error) {
+	path, err := url.JoinPath(b.url.String(), parts...)
+	if err != nil {
+		return nil, err
+	}
+	req, err := retryablehttp.NewRequest(method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("AccessKey", b.accessKey)
+	return req, nil
 }
 
-func (b *Bucket) ListObjects() <-chan minio.ObjectInfo {
-	return b.client.ListObjects(context.Background(), b.bucketName,
-		minio.ListObjectsOptions{Recursive: true})
-}
-
-func (b *Bucket) DeleteFiles(targets []*minio.ObjectInfo, start, total int) int {
-	objects := make(chan minio.ObjectInfo)
-	go func() {
-		defer close(objects)
-		for _, obj := range targets {
-			objects <- *obj
-		}
-	}()
-
-	var errored bool
-	for err := range b.client.RemoveObjects(context.Background(), b.bucketName,
-		objects, minio.RemoveObjectsOptions{}) {
-
-		log.Printf("error: %v", err)
-		errored = true
+func (b *Bucket) doRequest(req *retryablehttp.Request) error {
+	res, err := b.client.Do(req)
+	if err != nil {
+		return err
+	} else if res.StatusCode == 200 {
+		return nil
+	} else if res.StatusCode == 201 {
+		return nil
 	}
-	if errored {
-		panic(fmt.Errorf("errors deleting files (see above)"))
-	}
-	return start
+	return fmt.Errorf("unexpected response code %d", res.StatusCode)
 }

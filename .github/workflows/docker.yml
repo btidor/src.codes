@@ -33,17 +33,3 @@ jobs:
           build-args: COMMIT=${{ github.sha }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-
-      - name: Deploy grep with latest image
-        env:
-          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
-        run: |
-          curl https://vm1.src.codes/deploy --data grep \
-            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
-
-      - name: Deploy fzf with latest image
-        env:
-          ZEROKUBE_TOKEN: ${{ secrets.ZEROKUBE_TOKEN }}
-        run: |
-          curl https://vm1.src.codes/deploy --data fzf \
-            --header "Authorization: Bearer $ZEROKUBE_TOKEN"
