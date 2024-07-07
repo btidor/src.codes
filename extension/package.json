@@ -23,13 +23,6 @@
   "main": "./dist/std/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "srcCodes.explore",
-        "title": "Join in Workspace",
-        "category": "Distro Source Explorer"
-      }
-    ],
     "resourceLabelFormatters": [
       {
         "scheme": "srccodes",

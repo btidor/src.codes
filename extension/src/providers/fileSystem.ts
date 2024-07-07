@@ -2,7 +2,22 @@ import * as vscode from 'vscode';
 import FileClient from '../clients/file';
 import PackageClient from '../clients/package';
 
-import { File, Directory } from '../types/inode';
+import { File } from '../types/inode';
+
+const readme = `# src.codes
+
+src.codes is an online code browser for the Ubuntu package archive.
+
+* Browse the source code for all 2,390 packages in \`main\`.
+
+* Navigate the entire repository with standard VS Code tools:
+
+   - fuzzy-find files by path (\`Ctrl-P\`)
+   - full regex search (\`Ctrl-Shift-F\`)
+   - cross-package go-to-definition (\`Ctrl-F12\`; C only)
+
+~> https://github.com/btidor/src.codes
+`
 
 export default class FileSystemProvider implements vscode.FileSystemProvider {
     private packageClient: PackageClient;
@@ -25,22 +40,35 @@ export default class FileSystemProvider implements vscode.FileSystemProvider {
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
         return this.packageClient.parseUri(uri).then(path => {
-            if (path) {
+            if (path === "" || path === ".vscode") {
+                return {type: vscode.FileType.Directory, ctime:0, mtime:0, size:0};
+            } else if (path === ".vscode/README") {
+                return {type: vscode.FileType.File, ctime:0, mtime:0, size:0};
+            } else {
                 // Within package
                 return this.packageClient.listPackageContents(path.pkg).then(
                     root => root.walkPath(path.components)
                 );
-            } else {
-                // Workspace root. This node doesn't have its real contents, but
-                // that's okay, VS Code doesn't know about `.contents` anyway...
-                return new Directory();
             }
         });
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
         return this.packageClient.parseUri(uri).then(path => {
-            if (path) {
+            if (path === "") {
+                // Workspace root. Enumerate all packages as top-level
+                // directories.
+                return this.packageClient.listPackages().then(
+                    pkgs => [
+                        [".vscode", vscode.FileType.Directory],
+                        ...pkgs.map(pkg => [pkg.name, vscode.FileType.Directory]),
+                    ] as [string, vscode.FileType][]
+                );
+            } else if (path === ".vscode") {
+                return [["README", vscode.FileType.File]];
+            } else if (path === ".vscode/README") {
+                throw vscode.FileSystemError.FileNotADirectory();
+            } else {
                 // Within package. Find the directory at the given path and
                 // enumerate its contents.
                 return this.packageClient.listPackageContents(path.pkg).then(root => {
@@ -51,19 +79,17 @@ export default class FileSystemProvider implements vscode.FileSystemProvider {
                         return Object.entries(node.contents).map(([name, node]) => [name, node.type]);
                     }
                 });
-            } else {
-                // Workspace root. Enumerate all packages as top-level
-                // directories.
-                return this.packageClient.listPackages().then(
-                    pkgs => pkgs.map(pkg => [pkg.name, vscode.FileType.Directory])
-                );
             }
         });
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
         return this.packageClient.parseUri(uri).then(path => {
-            if (path) {
+            if (path === "" || path === ".vscode") {
+                throw vscode.FileSystemError.FileIsADirectory();
+            } else if (path === ".vscode/README") {
+                return new TextEncoder().encode(readme);
+            } else {
                 return this.packageClient.listPackageContents(path.pkg).then(root => {
                     const node = root.walkPath(path.components).resolveLinks();
                     if (node instanceof File) {
@@ -72,9 +98,6 @@ export default class FileSystemProvider implements vscode.FileSystemProvider {
                         throw vscode.FileSystemError.FileIsADirectory();
                     }
                 });
-            } else {
-                // Workspace root. Not a file!
-                throw vscode.FileSystemError.FileIsADirectory();
             }
         });
     }

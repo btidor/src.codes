@@ -53,19 +53,19 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerWorkspaceSymbolProvider(
 			new GlobalSymbolProvider(symbolsClient),
 		),
-		vscode.commands.registerCommand('srcCodes.explore', _ => {
-			vscode.commands.executeCommand(
-				'vscode.openFolder', vscode.Uri.from({
-					scheme: config.scheme,
-					path: '/' + config.distribution,
-				}),
-			);
-		}),
 		vscode.commands.registerCommand('srcCodes.triggerSearch', _ => {
 			return { triggerSearch: true };
 		}),
 	);
 
+	if (!context.workspaceState.get('welcome', false)) {
+		const uri = vscode.Uri.from({
+			scheme: config.scheme,
+			path: `/${config.distribution}/.vscode/README`,
+		});
+		vscode.commands.executeCommand('vscode.open', uri);
+		context.workspaceState.update('welcome', true);
+	}
 	console.warn("Hello from srccodes!");
 }
 

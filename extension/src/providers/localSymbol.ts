@@ -3,6 +3,8 @@ import PackageClient from '../clients/package';
 import SymbolsClient from '../clients/symbols';
 import { scoreFuzzy } from '../fuzzyScorer';
 
+import type { Path } from '../clients/package';
+
 export default class LocalSymbolProvider implements vscode.WorkspaceSymbolProvider {
     private packageClient: PackageClient;
     private symbolsClient: SymbolsClient;
@@ -17,7 +19,7 @@ export default class LocalSymbolProvider implements vscode.WorkspaceSymbolProvid
             // Only search packages corresponding to "known" text documents (~= open
             // tabs) to avoid overwhelming the user with unrelated symbols.
             vscode.workspace.textDocuments.map(
-                doc => this.packageClient.parseUri(doc.uri).then(path => path!.pkg)
+                doc => this.packageClient.parseUri(doc.uri).then(path => (path as Path).pkg)
             )
         ).then(pkgs => {
             return Promise.all(

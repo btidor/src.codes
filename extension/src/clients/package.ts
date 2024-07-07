@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Config, Package } from '../types/common';
 import { File, Directory, SymbolicLink } from '../types/inode';
 
-type Path = {
+export type Path = {
     pkg: Package,
     components: string[],
 };
@@ -68,14 +68,23 @@ export default class PackageClient {
         });
     };
 
-    parseUri(uri: vscode.Uri): Thenable<Path | undefined> {
+    parseUri(uri: vscode.Uri): Thenable<Path | "" | ".vscode" | ".vscode/README"> {
         if (uri.scheme != this.config.scheme) {
             throw new Error("Unknown scheme: " + uri.scheme);
         }
         const parts = uri.path.split("/");
         if (parts.length < 3) {
             // Workspace root
-            return Promise.resolve(undefined);
+            return Promise.resolve("");
+        } else if (parts[2] === ".vscode") {
+            // Special .vscode folder
+            if (parts.length < 4) {
+                return Promise.resolve(".vscode")
+            } else if (parts[3] === "README") {
+                return Promise.resolve(".vscode/README")
+            } else {
+                throw vscode.FileSystemError.FileNotFound();
+            }
         }
         const pkgName = parts[2];
         return this.getPackage(pkgName).then(pkg => {
