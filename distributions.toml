@@ -1,4 +1,4 @@
-[mantic]
+[noble]
 mirror = "http://us.archive.ubuntu.com/ubuntu/"
-areas = ["security", "updates", ""]
-components = ["main", "multiverse"]
+areas = [""]
+components = ["main"]

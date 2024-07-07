@@ -1,1 +1,13 @@
 # src.codes
+
+src.codes is an online code browser for the Ubuntu package archive.
+
+* Browse the source code for all 2,390 packages in `main`.
+
+* Navigate the entire repository with standard VS Code tools:
+
+   - fuzzy-find files by path (`Ctrl-P`)
+   - full regex search (`Ctrl-Shift-F`)
+   - cross-package go-to-definition (`Ctrl-F12`; C only)
+
+~> https://src.codes

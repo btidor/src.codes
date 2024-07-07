@@ -38,6 +38,10 @@ for patch in "$PROJECT_BASE"/vscode/*.patch; do
   fi
 done
 
+# Copy in the Explorer extension (built above)
+rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
+cp -r "$PROJECT_BASE/extension" "$BUILD_DIR/extensions/distro-source-explorer"
+
 # Insert product.json & extensions.json
 export PRODUCT_TS="$BUILD_DIR/src/vs/platform/product/common/product.ts"
 if [ ! -f "$PRODUCT_TS.orig" ]; then
@@ -66,14 +70,11 @@ find "$PROJECT_BASE/vscode/" -name '*.svg' -exec cp {} "$BUILD_DIR/src/vs/workbe
 sudo npm install -g yarn
 yarn install
 
-# Copy in the Explorer extension (built above)
-rm -rf "$BUILD_DIR/extensions/distro-source-explorer"
-cp -r "$PROJECT_BASE/extension" "$BUILD_DIR/extensions/distro-source-explorer"
-
 # Build VS Code; output is in $BUILD_DIR/out-vscode-web-min/
 yarn gulp vscode-web
 yarn gulp minify-vscode-web
 
 cp "$PROJECT_BASE/vscode/index.html" "$BUILD_DIR/out-vscode-web-min/"
+cp "$PROJECT_BASE/infra/404.html" "$BUILD_DIR/out-vscode-web-min/"
 cp -r "$BUILD_DIR/extensions" "$BUILD_DIR/out-vscode-web-min/"
 cp -r "$BUILD_DIR/remote/web/node_modules" "$BUILD_DIR/out-vscode-web-min/remote"

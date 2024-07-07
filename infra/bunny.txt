@@ -20,3 +20,6 @@ Bucket Headers
 Index File  ->  index.html
 404 File    ->  404.html
 Robots File ->  robots.txt
+
+lftp sftp://BUCKET@storage.bunnycdn.com
+> mirror -R -P 50 --no-symlinks _build/out-vscode-web-min/
