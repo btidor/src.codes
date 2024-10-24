@@ -2,7 +2,6 @@ package upload
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -69,22 +68,12 @@ func (up *Uploader) UploadTree(a analysis.Archive) {
 	if err != nil {
 		panic(err)
 	}
-
-	var in bytes.Buffer
-	zw := gzip.NewWriter(&in)
-	_, err = zw.Write(data)
-	if err != nil {
-		panic(err)
-	}
-	if err := zw.Close(); err != nil {
-		panic(err)
-	}
-
+	in := bytes.NewReader(data)
 	filename := fmt.Sprintf(
 		"%s_%s:%d.json", a.Pkg.Name, a.Pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(a.Pkg.Source.Distro, a.Pkg.Name, filename)
-	if err := up.ls.Put(remote, &in, "application/json"); err != nil {
+	if err := up.ls.Put(remote, in, "application/json"); err != nil {
 		panic(err)
 	}
 }
@@ -161,41 +150,23 @@ func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.Packag
 }
 
 func (up *Uploader) UploadCtagsPackageIndex(pkg apt.Package, ctags []byte) {
-	var in bytes.Buffer
-	zw := gzip.NewWriter(&in)
-	_, err := zw.Write(ctags)
-	if err != nil {
-		panic(err)
-	}
-	if err := zw.Close(); err != nil {
-		panic(err)
-	}
-
+	in := bytes.NewReader(ctags)
 	filename := fmt.Sprintf(
 		"%s_%s:%d.tags", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-	if err := up.ls.Put(remote, &in, "text/plain"); err != nil {
+	if err := up.ls.Put(remote, in, "text/plain"); err != nil {
 		panic(err)
 	}
 }
 
 func (up *Uploader) UploadSymbolsPackageIndex(pkg apt.Package, symbols []byte) {
-	var in bytes.Buffer
-	zw := gzip.NewWriter(&in)
-	_, err := zw.Write(symbols)
-	if err != nil {
-		panic(err)
-	}
-	if err := zw.Close(); err != nil {
-		panic(err)
-	}
-
+	in := bytes.NewReader(symbols)
 	filename := fmt.Sprintf(
 		"%s_%s:%d.symbols", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-	if err := up.ls.Put(remote, &in, "text/plain"); err != nil {
+	if err := up.ls.Put(remote, in, "text/plain"); err != nil {
 		panic(err)
 	}
 }
@@ -219,27 +190,19 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 				if err != nil {
 					panic(err)
 				}
-				rd, err := gzip.NewReader(data)
-				if err != nil {
-					panic(err)
-				}
-				var out bytes.Buffer
-				io.Copy(&out, rd)
-				results <- out
+				results <- *data
 				log.Printf("  done %s\n", path)
 			}
 		}(w, jobs, &wg)
 	}
 
 	var in bytes.Buffer
-	zw := gzip.NewWriter(&in)
-
 	var wg2 sync.WaitGroup
 	wg2.Add(1)
 	go func() {
 		defer wg2.Done()
 		for symbols := range results {
-			_, err := io.Copy(zw, &symbols)
+			_, err := io.Copy(&in, &symbols)
 			if err != nil {
 				panic(err)
 			}
@@ -257,10 +220,6 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 	close(results)
 	wg2.Wait()
 
-	if err := zw.Close(); err != nil {
-		panic(err)
-	}
-
 	remote := path.Join(distro, "symbols.txt")
 	if err := up.meta.Put(remote, &in, "text/plain"); err != nil {
 		panic(err)
@@ -268,21 +227,12 @@ func (up *Uploader) ConsolidateSymbolsIndex(distro string, pkgvers []database.Pa
 }
 
 func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, sourcetar []byte) {
-	var in bytes.Buffer
-	zw := gzip.NewWriter(&in)
-	_, err := zw.Write(codesearch)
-	if err != nil {
-		panic(err)
-	}
-	if err := zw.Close(); err != nil {
-		panic(err)
-	}
-
+	in := bytes.NewBuffer(codesearch)
 	filename := fmt.Sprintf(
 		"%s_%s:%d.csi", pkg.Name, pkg.Version, publisher.Epoch,
 	)
 	remote := path.Join(pkg.Source.Distro, pkg.Name, filename)
-	if err := up.ls.Put(remote, &in, ""); err != nil {
+	if err := up.ls.Put(remote, in, ""); err != nil {
 		panic(err)
 	}
 

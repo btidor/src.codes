@@ -5,14 +5,11 @@ Bucket Headers
  * ls:    Access-Control-Allow-Origin: *
           Cache-Control: public, max-age=604800, immutable
 
-          Content-Encoding: gzip
-            -> *.csi, *.json, *.symbols, *.tags AND status 200
+          Content-Type: text/plain
+            -> *.symbols, *.tags AND status 200
 
  * cat:   Access-Control-Allow-Origin: *
           Cache-Control: public, max-age=604800, immutable
-
-          Content-Encoding: gzip
-            -> */symbols.txt AND status 200
 
  * meta:  Access-Control-Allow-Origin: *
           Cache-Control: public, max-age=300
