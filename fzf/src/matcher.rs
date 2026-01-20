@@ -2,6 +2,7 @@ use crate::CharSet;
 use crate::Directory;
 use crate::PathComponent;
 use crate::Query;
+use crate::directory::Arena;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::convert::TryFrom;
@@ -77,11 +78,13 @@ pub struct Matcher<'a> {
     length: usize,
     /// The maximum number of results to include.
     max_results: usize,
+    /// The arena from which all state is allocated.
+    arena: &'a Arena,
 }
 
 impl Matcher<'_> {
     /// Creates a new Matcher.
-    pub fn new(query: &'_ Query, max_results: usize) -> Matcher<'_> {
+    pub fn new<'a>(query: &'a Query, max_results: usize, arena: &'a Arena) -> Matcher<'a> {
         let states = vec![
             State {
                 score: 0,
@@ -100,6 +103,7 @@ impl Matcher<'_> {
             char_set: CharSet::new(),
             length: 0,
             max_results,
+            arena: &arena,
         }
     }
 
@@ -121,7 +125,7 @@ impl Matcher<'_> {
         if !initial {
             path += "/";
         }
-        path += &directory.name.text();
+        path += &self.arena.path_text(directory.name);
 
         for file in &directory.files {
             let mut cs = file.char_set.to_owned();
@@ -138,7 +142,7 @@ impl Matcher<'_> {
                 continue;
             }
 
-            let path = path.to_owned() + "/" + &file.text();
+            let path = path.to_owned() + "/" + &self.arena.path_text(*file);
             if h.len() < self.max_results {
                 h.push(Match { score, path });
             } else if score > h.peek().unwrap().score {
@@ -172,7 +176,7 @@ impl Matcher<'_> {
             // Insert a synthetic path separator ('/')
             self.score_char('/' as u8, 0, self.length, initial);
         }
-        for (i, item) in comp.iter().enumerate() {
+        for (i, item) in self.arena.path_iter(*comp).iter().enumerate() {
             // Make `i` relative to the start of the path, rather than the start
             // of this path component.
             let mut i = self.length + i;
@@ -182,7 +186,7 @@ impl Matcher<'_> {
             self.score_char(item.byte, item.bonus, i, initial)
             // println!("{} {:?}", item.byte, self.states);
         }
-        self.length += comp.len();
+        self.length += usize::from(comp.len());
     }
 
     fn score_char(&mut self, char: u8, bonus: u8, i: usize, initial: bool) {
@@ -257,104 +261,108 @@ mod test {
 
     #[test]
     fn advance_score_simple() {
+        let mut a = Arena::new();
         let q = Query::new("asdf/123.rs").unwrap();
-        let mut m = Matcher::new(&q, 100);
 
-        let a = PathComponent::from("abc");
-        let b = PathComponent::from("SDF");
-        let c = PathComponent::from("102030.rs");
-        let x = PathComponent::from("");
+        let x = a.path_component("abc");
+        let y = a.path_component("SDF");
+        let z = a.path_component("102030.rs");
+        let w = a.path_component("");
+        let mut m = Matcher::new(&q, 100, &a);
 
-        m.advance(&a, true);
-        m.advance(&b, false);
-        let score = m.score(&c, false);
+        m.advance(&x, true);
+        m.advance(&y, false);
+        let score = m.score(&z, false);
 
         let chars = 2 + 1 + 1 + 1 + 2 + 2 + 2 + 2 + 2 + 2 + 2;
         let prevs = 8 + 5 + 2 + 2 + 0 + 5 + 0 + 0 + 0 + 4 + 0;
         let concs = 5 + 10 + 15 + 20 + 5 + 10;
         assert_eq!(chars + prevs + concs, score);
 
-        m.advance(&x, false);
-        let score2 = m.score(&x, false);
+        m.advance(&w, false);
+        let score2 = m.score(&w, false);
         assert_eq!(score, score2);
 
-        let full = PathComponent::from("abc/SDF/102030.rs");
-        m = Matcher::new(&q, 100);
+        let full = a.path_component("abc/SDF/102030.rs");
+        m = Matcher::new(&q, 100, &a);
         let score3 = m.score(&full, true);
         assert_eq!(score, score3);
     }
 
     #[test]
     fn advance_score_tail() {
+        let mut a = Arena::new();
         let q = Query::new("file").unwrap();
-        let mut m = Matcher::new(&q, 100);
 
-        let a = PathComponent::from("abc");
-        let b = PathComponent::from("def");
-        let c = PathComponent::from("fillet.sh");
+        let x = a.path_component("abc");
+        let y = a.path_component("def");
+        let z = a.path_component("fillet.sh");
+        let mut m = Matcher::new(&q, 100, &a);
 
-        m.advance(&a, true);
-        m.advance(&b, false);
-        let score = m.score(&c, false);
+        m.advance(&x, true);
+        m.advance(&y, false);
+        let score = m.score(&z, false);
 
         let chars = 2 + 2 + 2 + 2;
         let prevs = 5 + 0 + 0 + 0;
         let concs = 5 + 10;
         assert_eq!(chars + prevs + concs, score);
 
-        let full = PathComponent::from("abc/def/fillet.sh");
-        m = Matcher::new(&q, 100);
+        let full = a.path_component("abc/def/fillet.sh");
+        m = Matcher::new(&q, 100, &a);
         let score2 = m.score(&full, true);
         assert_eq!(score, score2);
     }
 
     #[test]
     fn advance_score_more() {
-        let p = PathComponent::from("abseil/absl/base/bit_cast_test.cc");
+        let mut a = Arena::new();
+        let p = a.path_component("abseil/absl/base/bit_cast_test.cc");
         let q = Query::new("abseilabsl.c").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(151, s);
 
-        let p = PathComponent::from("abseil/absl/flags/flag.cc");
+        let p = a.path_component("abseil/absl/flags/flag.cc");
         let q = Query::new("abseilabsl.c").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(151, s);
 
-        let p = PathComponent::from("firefox/dom/u2f/U2F.cpp");
+        let p = a.path_component("firefox/dom/u2f/U2F.cpp");
         let q = Query::new("FFX//U2FCPP").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(81, s);
 
-        let p = PathComponent::from("rpi-eeprom/LICENSE");
+        let p = a.path_component("rpi-eeprom/LICENSE");
         let q = Query::new("LICENSE").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(136, s);
 
-        let p = PathComponent::from("libinput/test/litest-device-synaptics-i2c.c");
+        let p = a.path_component("libinput/test/litest-device-synaptics-i2c.c");
         let q = Query::new("litsyn-2c").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(60, s);
 
-        let p = PathComponent::from("libjpeg-turbo/CMakeLists.txt");
+        let p = a.path_component("libjpeg-turbo/CMakeLists.txt");
         let q = Query::new("CMakeLists").unwrap();
-        let s = Matcher::new(&q, 100).score(&p, true);
+        let s = Matcher::new(&q, 100, &a).score(&p, true);
         assert_eq!(254, s);
     }
 
     #[test]
     fn walk() {
-        let f1 = PathComponent::from("aaa");
-        let f2 = PathComponent::from("bar");
-        let c1 = PathComponent::from("child");
+        let mut a = Arena::new();
+        let f1 = a.path_component("aaa");
+        let f2 = a.path_component("bar");
+        let c1 = a.path_component("child");
         let child = Directory::new(c1, vec![f1, f2], vec![]);
 
-        let f3 = PathComponent::from("baz");
-        let r = PathComponent::from("root");
+        let f3 = a.path_component("baz");
+        let r = a.path_component("root");
         let root = Directory::new(r, vec![f3], vec![child]);
 
         let mut h = BinaryHeap::new();
         let q = Query::new("child/aaa").unwrap();
-        let mut m = Matcher::new(&q, 100);
+        let mut m = Matcher::new(&q, 100, &a);
         m.walk(&root, "", &mut h, true);
 
         assert_eq!(4, m.length); // advanced past "root"
@@ -364,7 +372,7 @@ mod test {
 
         let mut h = BinaryHeap::new();
         let q = Query::new("/a").unwrap();
-        let mut m = Matcher::new(&q, 2);
+        let mut m = Matcher::new(&q, 2, &a);
         m.walk(&root, "", &mut h, true);
 
         assert_eq!(2, h.len());

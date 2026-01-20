@@ -1,14 +1,10 @@
-use fzf::Directory;
-use fzf::Matcher;
-use fzf::PathServer;
-use fzf::Query;
+use fzf::{Arena, Matcher, PathServer, Query};
 use std::collections::BinaryHeap;
 use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::str::FromStr;
-use tiny_http::Header;
-use tiny_http::Response;
+use tiny_http::{Header, Response};
 use url::Url;
 
 const DISTRO: &str = "noble";
@@ -73,11 +69,12 @@ fn serve() {
 
 fn benchmark() {
     // Load index
+    let mut a = Arena::new();
     let mut file = File::open("paths.fzf").unwrap();
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
 
-    let directories = Directory::load(&buf[..]).unwrap();
+    let directories = a.load(&buf[..]).unwrap();
     let query = Query::new("abseilabsl.c").unwrap();
 
     // Walk index
@@ -85,7 +82,7 @@ fn benchmark() {
         println!("Iteration {}", i + 1);
         let mut h = BinaryHeap::new();
         for (_, directory) in directories.iter().enumerate() {
-            Matcher::new(&query, 100).walk(directory, "", &mut h, true);
+            Matcher::new(&query, 100, &a).walk(directory, "", &mut h, true);
         }
     }
 }

@@ -1,6 +1,7 @@
 use crate::Directory;
 use crate::Matcher;
 use crate::Query;
+use crate::directory::Arena;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -10,6 +11,7 @@ pub struct PathServer {
     commit: String,
     max_results: usize,
 
+    arena: Arena,
     index: HashMap<String, Vec<Directory>>,
 }
 
@@ -18,12 +20,13 @@ impl PathServer {
         PathServer {
             commit,
             max_results,
+            arena: Arena::new(),
             index: HashMap::new(),
         }
     }
 
     pub fn load(&mut self, distro: String, data: &[u8]) {
-        let root = Directory::load(data).unwrap();
+        let root = self.arena.load(data).unwrap();
         self.index.insert(distro, root);
     }
 
@@ -59,7 +62,7 @@ impl PathServer {
         let start = Instant::now();
         let mut h = BinaryHeap::new();
         for root in pkgs {
-            Matcher::new(&query, self.max_results).walk(root, "", &mut h, true);
+            Matcher::new(&query, self.max_results, &self.arena).walk(root, "", &mut h, true);
         }
 
         let mut body = String::new();
