@@ -1,0 +1,9 @@
+app = 'fzf'
+primary_region = 'sjc'
+
+[http_service]
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 0
+processes = ['app']

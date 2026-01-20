@@ -1,7 +1,7 @@
 [package]
 name = "fzf"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "fzf"
@@ -10,7 +10,11 @@ path = "src/lib.rs"
 [dependencies]
 array-init = "^2.0"
 http = "^0.1"
-reqwest = { version = "^0.11", features = ["blocking", "brotli", "rustls-tls"], default-features = false }
+reqwest = { version = "^0.11", features = [
+    "blocking",
+    "brotli",
+    "rustls-tls",
+], default-features = false }
 rmp = "^0.8"
 tiny_http = "^0.12"
 

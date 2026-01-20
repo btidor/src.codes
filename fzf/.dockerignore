@@ -1,0 +1,4 @@
+.git/
+target/
+*.fzf
+fly.toml

@@ -81,7 +81,7 @@ pub struct Matcher<'a> {
 
 impl Matcher<'_> {
     /// Creates a new Matcher.
-    pub fn new(query: &Query, max_results: usize) -> Matcher {
+    pub fn new(query: &'_ Query, max_results: usize) -> Matcher<'_> {
         let states = vec![
             State {
                 score: 0,

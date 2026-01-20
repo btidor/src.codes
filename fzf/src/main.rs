@@ -5,63 +5,41 @@ use fzf::Query;
 use reqwest::Url;
 use std::collections::BinaryHeap;
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
 use std::str::FromStr;
 use tiny_http::Header;
 use tiny_http::Response;
 
 const DISTRO: &str = "noble";
 const MAX_RESULTS: usize = 100;
-const META_BASE: &str = "https://meta.src.codes/";
 const NUM_ITERATIONS: usize = 50;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() == 3 && args[1] == "--serve" {
-        serve(args[2].to_string(), false);
-    } else if args.len() == 2 && args[1] == "--dev" {
-        serve("localhost:7070".to_string(), true);
+    if args.len() == 1 {
+        serve();
     } else if args.len() == 2 && args[1] == "--benchmark" {
         benchmark();
     } else {
-        println!(
-            "usage: {} {{--serve SOCKET | --dev | --benchmark}}",
-            args[0]
-        );
+        println!("usage: {} [--benchmark]", args[0]);
     }
 }
 
-fn serve(addr: String, local: bool) {
+fn serve() {
     let mut commit = env!("COMMIT").to_string();
     commit.truncate(8);
 
     let mut server = PathServer::new(commit, MAX_RESULTS);
-    if local {
-        println!("Loading index from local cache");
-        let mut file = File::open("paths.fzf").unwrap();
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).unwrap();
-        server.load(DISTRO.to_string(), &buf);
-    } else {
-        println!("Downloading index");
-        let url = META_BASE.to_string() + DISTRO + "/paths.fzf";
-        let resp = reqwest::blocking::get(url).unwrap().bytes().unwrap();
-        server.load(DISTRO.to_string(), &resp);
-    }
+    println!("Loading index from local cache");
+    let mut file = File::open("paths.fzf").unwrap();
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf).unwrap();
+    server.load(DISTRO.to_string(), &buf);
 
+    let addr = "0.0.0.0:8080";
     println!("Starting server on {}", addr);
-    let http = if local {
-        tiny_http::Server::http(addr).unwrap()
-    } else {
-        let path = Path::new(&addr);
-        if path.exists() {
-            fs::remove_file(path).unwrap();
-        }
-        tiny_http::Server::http_unix(path).unwrap()
-    };
+    let http = tiny_http::Server::http(addr).unwrap();
 
     loop {
         let request = match http.recv() {
