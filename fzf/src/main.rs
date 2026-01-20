@@ -32,10 +32,12 @@ fn serve() {
 
     let mut server = PathServer::new(commit, MAX_RESULTS);
     println!("Loading index from local cache");
-    let mut file = File::open("paths.fzf").unwrap();
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf).unwrap();
-    server.load(DISTRO.to_string(), &buf);
+    {
+        let mut file = File::open("paths.fzf").unwrap();
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).unwrap();
+        server.load(DISTRO.to_string(), &buf);
+    }
 
     let addr = "0.0.0.0:8080";
     println!("Starting server on {}", addr);
