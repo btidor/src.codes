@@ -127,7 +127,7 @@ impl Matcher<'_> {
         }
         path += &self.arena.path_text(directory.name);
 
-        for file in &directory.files {
+        for file in self.arena.files_iter(directory) {
             let mut cs = file.char_set.to_owned();
             cs.incorporate(&self.char_set);
             if !self.query.covered_by(&cs) {
@@ -353,12 +353,15 @@ mod test {
         let mut a = Arena::new();
         let f1 = a.path_component("aaa");
         let f2 = a.path_component("bar");
+        a.files.extend(vec![f1, f2]);
         let c1 = a.path_component("child");
-        let child = Directory::new(c1, vec![f1, f2], vec![]);
+        let child = a.directory(c1, 0, 2, vec![]);
 
         let f3 = a.path_component("baz");
+        let off = u32::try_from(a.files.len()).unwrap();
+        a.files.push(f3);
         let r = a.path_component("root");
-        let root = Directory::new(r, vec![f3], vec![child]);
+        let root = a.directory(r, off, 1, vec![child]);
 
         let mut h = BinaryHeap::new();
         let q = Query::new("child/aaa").unwrap();

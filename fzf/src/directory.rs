@@ -10,34 +10,13 @@ pub struct Directory {
     /// The directory name.
     pub name: PathComponent,
     /// The files in this directory.
-    pub files: Vec<PathComponent>,
+    pub fileoff: u32,
+    pub filelen: u16,
     /// The subdirectories of this directory.
     pub children: Vec<Directory>,
     /// A bit vector indicating which ASCII characters appear in the names of
     /// this directory, its files and children (recursively).
     pub char_set: CharSet,
-}
-
-impl Directory {
-    pub fn new(
-        name: PathComponent,
-        files: Vec<PathComponent>,
-        children: Vec<Directory>,
-    ) -> Directory {
-        let mut char_set = CharSet::new();
-        char_set.incorporate(&name.char_set);
-        files.iter().for_each(|f| char_set.incorporate(&f.char_set));
-        children
-            .iter()
-            .for_each(|c| char_set.incorporate(&c.char_set));
-
-        Directory {
-            name,
-            files,
-            children,
-            char_set,
-        }
-    }
 }
 
 /// A file or directory name.
@@ -71,11 +50,15 @@ pub struct PChar {
 
 pub struct Arena {
     pub pchars: Vec<PChar>,
+    pub files: Vec<PathComponent>,
 }
 
 impl Arena {
     pub fn new() -> Arena {
-        return Arena { pchars: vec![] };
+        return Arena {
+            files: vec![],
+            pchars: vec![],
+        };
     }
 
     /// Constructs a [PathComponent] from a string. If `initial` is set, the
@@ -130,7 +113,7 @@ impl Arena {
         }
 
         if (start >= (1 << 26)) || (start & 0x3 != 0) {
-            panic!("arena filled past max size") // needs to fit in 24 bits
+            panic!("arena filled past max pchars") // needs to fit in 24 bits
         }
         let n = u8::try_from(len).expect("path component too long");
         let data = u32::try_from(start << 6 | usize::from(n)).unwrap();
@@ -156,7 +139,7 @@ impl Arena {
     /// Decodes a single [Directory] and its contents, recursively, from a
     /// MessagePack byte slice. Returns the the [Directory] and a slice
     /// referring to the remaining contents of the byte slice.
-    fn directory<'a>(
+    fn parse_directory<'a>(
         &mut self,
         cur: &'a [u8],
     ) -> Result<(Directory, &'a [u8]), Box<dyn Error + 'a>> {
@@ -166,23 +149,50 @@ impl Arena {
         let (nom, mut cur) = rmp::decode::read_str_from_slice(cur)?;
         let name = self.path_component(nom);
 
-        let n = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
-        let mut files: Vec<PathComponent> = Vec::with_capacity(n.try_into().unwrap());
-        for _ in 0..n {
+        let fileoff = u32::try_from(self.files.len()).expect("arena filled past max files");
+        let filelen = u16::try_from(rmp::decode::read_array_len(&mut cur).unwrap_or(0))
+            .expect("too many files in directory");
+        for _ in 0..filelen {
             let file;
             (file, cur) = rmp::decode::read_str_from_slice(cur)?;
-            files.push(self.path_component(file));
+            let pc = self.path_component(file);
+            self.files.push(pc);
         }
 
         let n = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
         let mut children: Vec<Directory> = Vec::with_capacity(n.try_into().unwrap());
         for _ in 0..n {
             let child;
-            (child, cur) = self.directory(cur)?;
+            (child, cur) = self.parse_directory(cur)?;
             children.push(child);
         }
 
-        Ok((Directory::new(name, files, children), cur))
+        Ok((self.directory(name, fileoff, filelen, children), cur))
+    }
+
+    pub fn directory(
+        &self,
+        name: PathComponent,
+        fileoff: u32,
+        filelen: u16,
+        children: Vec<Directory>,
+    ) -> Directory {
+        let mut char_set = CharSet::new();
+        char_set.incorporate(&name.char_set);
+        self._files_iter(fileoff, filelen)
+            .iter()
+            .for_each(|f| char_set.incorporate(&f.char_set));
+        children
+            .iter()
+            .for_each(|c| char_set.incorporate(&c.char_set));
+
+        Directory {
+            name,
+            fileoff,
+            filelen,
+            children,
+            char_set,
+        }
     }
 
     /// Decodes a vector of [Directory] objects from a MessagePack byte slice.
@@ -193,12 +203,22 @@ impl Arena {
         for _ in 0..n {
             let directory;
             rmp::decode::read_bin_len(&mut cur).unwrap();
-            (directory, cur) = self.directory(cur)?;
+            (directory, cur) = self.parse_directory(cur)?;
             dirs.push(directory);
         }
         self.pchars.shrink_to_fit();
 
         Ok(dirs)
+    }
+
+    pub fn files_iter(&self, d: &Directory) -> &[PathComponent] {
+        self._files_iter(d.fileoff, d.filelen)
+    }
+
+    fn _files_iter(&self, fileoff: u32, filelen: u16) -> &[PathComponent] {
+        let start = usize::try_from(fileoff).unwrap();
+        let len = usize::from(filelen);
+        &self.files[start..(start + len)]
     }
 }
 
@@ -257,19 +277,19 @@ mod tests {
             0x92, 0xA2, 0x66, 0x31, 0xA2, 0x66, 0x32, 0x90, 0x93, 0xA6, 0x63, 0x68, 0x69, 0x6C,
             0x64, 0x32, 0x93, 0xA2, 0x66, 0x31, 0xA2, 0x66, 0x32, 0xA2, 0x66, 0x33, 0x90,
         ];
-        let (directory, remainder) = a.directory(&demo).unwrap();
+        let (directory, remainder) = a.parse_directory(&demo).unwrap();
         assert_eq!(0, remainder.len());
 
         assert_eq!("root", a.path_text(directory.name));
 
-        assert_eq!(3, directory.files.len());
-        assert_eq!("baz", a.path_text(directory.files[2]));
+        assert_eq!(3, directory.filelen);
+        assert_eq!("baz", a.path_text(a.files_iter(&directory)[2]));
 
         assert_eq!(2, directory.children.len());
         assert_eq!("child2", a.path_text(directory.children[1].name));
 
-        assert_eq!(3, directory.children[1].files.len());
-        assert_eq!("f2", a.path_text(directory.children[1].files[1]));
+        assert_eq!(3, directory.children[1].filelen);
+        assert_eq!("f2", a.path_text(a.files_iter(&directory.children[1])[1]));
     }
 
     #[test]
@@ -291,6 +311,6 @@ mod tests {
             0x00000002_90080048,
             directories[1].char_set.extract_internals()
         );
-        assert_eq!("foo", a.path_text(directories[1].files[0]));
+        assert_eq!("foo", a.path_text(a.files_iter(&directories[1])[0]));
     }
 }
