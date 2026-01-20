@@ -9,11 +9,11 @@ use std::error::Error;
 pub struct Directory {
     /// The directory name.
     pub name: PathComponent,
-    /// The files in this directory.
+    /// The files & subdirectories in this directory.
     pub fileoff: u32,
+    pub diroff: u32,
     pub filelen: u16,
-    /// The subdirectories of this directory.
-    pub children: Vec<Directory>,
+    pub dirlen: u16,
     /// A bit vector indicating which ASCII characters appear in the names of
     /// this directory, its files and children (recursively).
     pub char_set: CharSet,
@@ -51,13 +51,15 @@ pub struct PChar {
 pub struct Arena {
     pub pchars: Vec<PChar>,
     pub files: Vec<PathComponent>,
+    pub dirs: Vec<Directory>,
 }
 
 impl Arena {
     pub fn new() -> Arena {
         return Arena {
-            files: vec![],
             pchars: vec![],
+            files: vec![],
+            dirs: vec![],
         };
     }
 
@@ -159,38 +161,49 @@ impl Arena {
             self.files.push(pc);
         }
 
-        let n = rmp::decode::read_array_len(&mut cur).unwrap_or(0);
-        let mut children: Vec<Directory> = Vec::with_capacity(n.try_into().unwrap());
-        for _ in 0..n {
-            let child;
-            (child, cur) = self.parse_directory(cur)?;
-            children.push(child);
+        let diroff = u32::try_from(self.dirs.len()).expect("arena filled past max dirs");
+        let dirlen = u16::try_from(rmp::decode::read_array_len(&mut cur).unwrap_or(0))
+            .expect("too many subdirs in directory");
+        for _ in 0..dirlen {
+            self.dirs.push(Directory {
+                name,
+                fileoff,
+                diroff,
+                filelen,
+                dirlen,
+                char_set: CharSet::new(),
+            });
+        }
+        for i in diroff..(diroff + u32::from(dirlen)) {
+            (self.dirs[usize::try_from(i).unwrap()], cur) = self.parse_directory(cur)?;
         }
 
-        Ok((self.directory(name, fileoff, filelen, children), cur))
+        Ok((self.directory(name, fileoff, diroff, filelen, dirlen), cur))
     }
 
     pub fn directory(
         &self,
         name: PathComponent,
         fileoff: u32,
+        diroff: u32,
         filelen: u16,
-        children: Vec<Directory>,
+        dirlen: u16,
     ) -> Directory {
         let mut char_set = CharSet::new();
         char_set.incorporate(&name.char_set);
-        self._files_iter(fileoff, filelen)
+        _iter(&self.files, fileoff, filelen)
             .iter()
             .for_each(|f| char_set.incorporate(&f.char_set));
-        children
+        _iter(&self.dirs, diroff, dirlen)
             .iter()
             .for_each(|c| char_set.incorporate(&c.char_set));
 
         Directory {
             name,
             fileoff,
+            diroff,
             filelen,
-            children,
+            dirlen,
             char_set,
         }
     }
@@ -212,14 +225,18 @@ impl Arena {
     }
 
     pub fn files_iter(&self, d: &Directory) -> &[PathComponent] {
-        self._files_iter(d.fileoff, d.filelen)
+        _iter(&self.files, d.fileoff, d.filelen)
     }
 
-    fn _files_iter(&self, fileoff: u32, filelen: u16) -> &[PathComponent] {
-        let start = usize::try_from(fileoff).unwrap();
-        let len = usize::from(filelen);
-        &self.files[start..(start + len)]
+    pub fn dirs_iter(&self, d: &Directory) -> &[Directory] {
+        _iter(&self.dirs, d.diroff, d.dirlen)
     }
+}
+
+fn _iter<T>(v: &Vec<T>, off: u32, len: u16) -> &[T] {
+    let start = usize::try_from(off).unwrap();
+    let len = usize::from(len);
+    &v[start..(start + len)]
 }
 
 #[cfg(test)]
@@ -285,11 +302,14 @@ mod tests {
         assert_eq!(3, directory.filelen);
         assert_eq!("baz", a.path_text(a.files_iter(&directory)[2]));
 
-        assert_eq!(2, directory.children.len());
-        assert_eq!("child2", a.path_text(directory.children[1].name));
+        assert_eq!(2, directory.dirlen);
+        assert_eq!("child2", a.path_text(a.dirs_iter(&directory)[1].name));
 
-        assert_eq!(3, directory.children[1].filelen);
-        assert_eq!("f2", a.path_text(a.files_iter(&directory.children[1])[1]));
+        assert_eq!(3, a.dirs_iter(&directory)[1].filelen);
+        assert_eq!(
+            "f2",
+            a.path_text(a.files_iter(&a.dirs_iter(&directory)[1])[1])
+        );
     }
 
     #[test]
