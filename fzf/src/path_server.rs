@@ -1,11 +1,10 @@
 use crate::Directory;
 use crate::Matcher;
 use crate::Query;
-use http::StatusCode;
-use reqwest::Url;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::time::Instant;
+use url::Url;
 
 pub struct PathServer {
     commit: String,
@@ -28,31 +27,31 @@ impl PathServer {
         self.index.insert(distro, root);
     }
 
-    pub fn handle(&self, url: &Url) -> (StatusCode, String) {
+    pub fn handle(&self, url: &Url) -> (u16, String) {
         let parts: Vec<&str> = url.path_segments().unwrap().collect();
         let distro = *parts.get(0).unwrap_or(&"");
         if distro == "" {
             // Request to "/"
-            return (StatusCode::OK, format!("Hello from fzf@{}!\n", self.commit));
+            return (200, format!("Hello from fzf@{}!\n", self.commit));
         } else if distro == "robots.txt" {
-            return (StatusCode::OK, format!("User-agent: *\nDisallow: /\n"));
+            return (200, format!("User-agent: *\nDisallow: /\n"));
         }
 
         let pkgs = match self.index.get(distro) {
             None => {
-                return (StatusCode::NOT_FOUND, "404 Not Found\n".to_string());
+                return (404, "404 Not Found\n".to_string());
             }
             Some(x) => x,
         };
         if parts.len() > 1 {
-            return (StatusCode::NOT_FOUND, "404 Not Found\n".to_string());
+            return (404, "404 Not Found\n".to_string());
         }
 
         let params: HashMap<_, _> = url.query_pairs().collect();
         let qstr = params.get("q");
         let query = match qstr.and_then(|q| Query::new(q)) {
             None => {
-                return (StatusCode::BAD_REQUEST, "400 Bad Request\n".to_string());
+                return (400, "400 Bad Request\n".to_string());
             }
             Some(x) => x,
         };
@@ -78,6 +77,6 @@ impl PathServer {
         }
         body.push_str(&format!("Time: {:?}\n", start.elapsed()));
 
-        (StatusCode::OK, body)
+        (200, body)
     }
 }

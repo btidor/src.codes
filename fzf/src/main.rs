@@ -2,7 +2,6 @@ use fzf::Directory;
 use fzf::Matcher;
 use fzf::PathServer;
 use fzf::Query;
-use reqwest::Url;
 use std::collections::BinaryHeap;
 use std::env;
 use std::fs::File;
@@ -10,6 +9,7 @@ use std::io::Read;
 use std::str::FromStr;
 use tiny_http::Header;
 use tiny_http::Response;
+use url::Url;
 
 const DISTRO: &str = "noble";
 const MAX_RESULTS: usize = 100;
@@ -58,7 +58,7 @@ fn serve() {
             .unwrap();
         let (status, body) = server.handle(&url);
 
-        let mut response = Response::from_string(body).with_status_code(status.as_u16());
+        let mut response = Response::from_string(body).with_status_code(status);
 
         response.add_header(Header::from_str("Access-Control-Allow-Origin: *").unwrap());
         response.add_header(Header::from_str("Cache-Control: no-cache").unwrap());
