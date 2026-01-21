@@ -4,6 +4,7 @@ use crate::Query;
 use crate::directory::Arena;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
+use std::io::Read;
 use std::time::Instant;
 use url::Url;
 
@@ -25,7 +26,7 @@ impl PathServer {
         }
     }
 
-    pub fn load(&mut self, distro: String, data: &[u8]) {
+    pub fn load(&mut self, distro: String, data: &mut impl Read) {
         let root = self.arena.load(data).unwrap();
         self.index.insert(distro, root);
     }

@@ -1,6 +1,7 @@
 use crate::CharSet;
 use std::convert::TryInto;
 use std::error::Error;
+use std::io::Read;
 
 /// A directory in the filesystem tree.
 ///
@@ -141,28 +142,27 @@ impl Arena {
     /// Decodes a single [Directory] and its contents, recursively, from a
     /// MessagePack byte slice. Returns the the [Directory] and a slice
     /// referring to the remaining contents of the byte slice.
-    fn parse_directory<'a>(
-        &mut self,
-        cur: &'a [u8],
-    ) -> Result<(Directory, &'a [u8]), Box<dyn Error + 'a>> {
-        let mut cur = cur;
-        rmp::decode::read_array_len(&mut cur).unwrap();
+    fn parse_directory(&mut self, io: &mut impl Read) -> Result<Directory, Box<dyn Error>> {
+        rmp::decode::read_array_len(io).unwrap();
 
-        let (nom, mut cur) = rmp::decode::read_str_from_slice(cur)?;
-        let name = self.path_component(nom);
+        let n = rmp::decode::read_str_len(io)?;
+        let mut buf = vec![0u8; n as usize];
+        io.read_exact(&mut buf)?;
+        let name = self.path_component(std::str::from_utf8(&buf)?);
 
         let fileoff = u32::try_from(self.files.len()).expect("arena filled past max files");
-        let filelen = u16::try_from(rmp::decode::read_array_len(&mut cur).unwrap_or(0))
+        let filelen = u16::try_from(rmp::decode::read_array_len(io).unwrap_or(0))
             .expect("too many files in directory");
         for _ in 0..filelen {
-            let file;
-            (file, cur) = rmp::decode::read_str_from_slice(cur)?;
-            let pc = self.path_component(file);
-            self.files.push(pc);
+            let n = rmp::decode::read_str_len(io)?;
+            let mut buf = vec![0u8; n as usize];
+            io.read_exact(&mut buf)?;
+            let file = self.path_component(std::str::from_utf8(&buf)?);
+            self.files.push(file);
         }
 
         let diroff = u32::try_from(self.dirs.len()).expect("arena filled past max dirs");
-        let dirlen = u16::try_from(rmp::decode::read_array_len(&mut cur).unwrap_or(0))
+        let dirlen = u16::try_from(rmp::decode::read_array_len(io).unwrap_or(0))
             .expect("too many subdirs in directory");
         for _ in 0..dirlen {
             self.dirs.push(Directory {
@@ -175,10 +175,10 @@ impl Arena {
             });
         }
         for i in diroff..(diroff + u32::from(dirlen)) {
-            (self.dirs[usize::try_from(i).unwrap()], cur) = self.parse_directory(cur)?;
+            self.dirs[usize::try_from(i).unwrap()] = self.parse_directory(io)?;
         }
 
-        Ok((self.directory(name, fileoff, diroff, filelen, dirlen), cur))
+        Ok(self.directory(name, fileoff, diroff, filelen, dirlen))
     }
 
     pub fn directory(
@@ -209,14 +209,12 @@ impl Arena {
     }
 
     /// Decodes a vector of [Directory] objects from a MessagePack byte slice.
-    pub fn load<'a>(&'a mut self, cur: &'a [u8]) -> Result<Vec<Directory>, Box<dyn Error + 'a>> {
-        let mut cur = cur;
-        let n = rmp::decode::read_array_len(&mut cur)?;
+    pub fn load(&mut self, io: &mut impl Read) -> Result<Vec<Directory>, Box<dyn Error>> {
+        let n = rmp::decode::read_array_len(io)?;
         let mut dirs: Vec<Directory> = Vec::with_capacity(n.try_into().unwrap());
         for _ in 0..n {
-            let directory;
-            rmp::decode::read_bin_len(&mut cur).unwrap();
-            (directory, cur) = self.parse_directory(cur)?;
+            rmp::decode::read_bin_len(io).unwrap();
+            let directory = self.parse_directory(&mut *io)?;
             dirs.push(directory);
         }
         self.pchars.shrink_to_fit();
@@ -288,15 +286,13 @@ mod tests {
     #[test]
     fn directory_decode() {
         let mut a = Arena::new();
-        let demo = [
+        let mut demo: &[u8] = &[
             0x93, 0xA4, 0x72, 0x6F, 0x6F, 0x74, 0x93, 0xA3, 0x66, 0x6F, 0x6F, 0xA3, 0x62, 0x61,
             0x72, 0xA3, 0x62, 0x61, 0x7A, 0x92, 0x93, 0xA6, 0x63, 0x68, 0x69, 0x6C, 0x64, 0x31,
             0x92, 0xA2, 0x66, 0x31, 0xA2, 0x66, 0x32, 0x90, 0x93, 0xA6, 0x63, 0x68, 0x69, 0x6C,
             0x64, 0x32, 0x93, 0xA2, 0x66, 0x31, 0xA2, 0x66, 0x32, 0xA2, 0x66, 0x33, 0x90,
         ];
-        let (directory, remainder) = a.parse_directory(&demo).unwrap();
-        assert_eq!(0, remainder.len());
-
+        let directory = a.parse_directory(&mut demo).unwrap();
         assert_eq!("root", a.path_text(directory.name));
 
         assert_eq!(3, directory.filelen);
@@ -315,12 +311,12 @@ mod tests {
     #[test]
     fn directory_load() {
         let mut a = Arena::new();
-        let demo = [
+        let mut demo: &[u8] = &[
             0x92, 0xC4, 0x0C, 0x93, 0xA5, 0x72, 0x6F, 0x6F, 0x74, 0x31, 0x91, 0xA3, 0x66, 0x6F,
             0x6F, 0x90, 0xC4, 0x0C, 0x93, 0xA5, 0x72, 0x6F, 0x6F, 0x74, 0x32, 0x91, 0xA3, 0x66,
             0x6F, 0x6F, 0x90,
         ];
-        let directories = a.load(&demo).unwrap();
+        let directories = a.load(&mut demo).unwrap();
         assert_eq!(2, directories.len());
         assert_eq!("root1", a.path_text(directories[0].name));
         assert_eq!(

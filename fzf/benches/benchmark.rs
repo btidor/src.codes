@@ -2,15 +2,15 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use fzf::{Arena, Matcher, Query};
 use std::collections::BinaryHeap;
 use std::fs::File;
-use std::io::Read;
 
 fn benchmark(c: &mut Criterion) {
     // Load index
     let mut a = Arena::new();
-    let mut file = File::open("paths.fzf").unwrap();
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf).unwrap();
-    let nodes = a.load(&buf[..]).unwrap();
+    let nodes;
+    {
+        let mut file = File::open("paths.fzf").unwrap();
+        nodes = a.load(&mut file).unwrap();
+    }
     let query = Query::new("abseilabsl.c").unwrap();
 
     let mut group = c.benchmark_group("fzf");
