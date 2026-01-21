@@ -2,6 +2,7 @@ use fzf::{Arena, Matcher, PathServer, Query};
 use std::collections::BinaryHeap;
 use std::env;
 use std::fs::File;
+use std::io::BufReader;
 use std::str::FromStr;
 use tiny_http::{Header, Response};
 use url::Url;
@@ -28,8 +29,9 @@ fn serve() {
     let mut server = PathServer::new(commit, MAX_RESULTS);
     println!("Loading index from local cache");
     {
-        let mut file = File::open("paths.fzf").unwrap();
-        server.load(DISTRO.to_string(), &mut file);
+        let file = File::open("paths.fzf").unwrap();
+        let mut buf = BufReader::new(file);
+        server.load(DISTRO.to_string(), &mut buf);
     }
 
     let addr = "0.0.0.0:8080";
