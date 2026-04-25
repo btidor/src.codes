@@ -1,5 +1,5 @@
 ### Build grep
-FROM golang:1.22 as grep
+FROM golang:1.26 as grep
 ARG COMMIT
 
 WORKDIR /go/src/app
