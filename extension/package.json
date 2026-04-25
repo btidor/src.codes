@@ -56,7 +56,7 @@
     "@vscode/test-web": "^0.0.55",
     "assert": "^2.1.0",
     "eslint": "^8.56.0",
-    "mocha": "^10.5.1",
+    "mocha": "^11.3.0",
     "process": "^0.11.10",
     "ts-loader": "^9.5.1",
     "typescript": "^5.5.3",

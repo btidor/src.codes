@@ -57,6 +57,7 @@ export default class HTTPClient {
         }
 
         let response;
+        // @ts-ignore
         if (typeof process === 'undefined' || process.title === 'browser') {
             response = this.streamingFetchBrowser(url, handleChunk, signal);
         } else {
@@ -90,6 +91,7 @@ export default class HTTPClient {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
+                    // @ts-ignore
                     else handleChunk(value!);
                 }
                 resolve();
