@@ -16,7 +16,7 @@ RUN npm install -g npm yo generator-code
 
 # Install development packages
 ADD --apt graphviz linux-tools-generic google-perftools libgoogle-perftools-dev \
-    llvm gnuplot-nox musl-tools universal-ctags dpkg-dev postgresql-client lftp
+    llvm gnuplot-nox musl-tools universal-ctags dpkg-dev lftp sqlite3
 
 RUN curl -L https://fly.io/install.sh | FLYCTL_INSTALL=/usr/local sh
 
