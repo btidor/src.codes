@@ -4,7 +4,7 @@
   "description": "VS Code extension for https://src.codes browser",
   "repository": "btidor/src.codes",
   "license": "MIT",
-  "version": "1.0.0-alpha",
+  "version": "26.4.0",
   "publisher": "btidor",
   "engines": {
     "vscode": "^1.90.0"
@@ -48,7 +48,9 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.7",
+    "@types/assert": "^1.5.11",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.7.0",
     "@types/vscode": "^1.90.0",
     "@types/webpack-env": "^1.18.5",
     "@typescript-eslint/eslint-plugin": "^7.15.0",

@@ -7,7 +7,7 @@ use std::str::FromStr;
 use tiny_http::{Header, Response};
 use url::Url;
 
-const DISTRO: &str = "noble";
+const DISTRO: &str = "resolute";
 const MAX_RESULTS: usize = 100;
 const NUM_ITERATIONS: usize = 50;
 

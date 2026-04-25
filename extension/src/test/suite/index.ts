@@ -10,7 +10,9 @@ export function run(): Promise<void> {
 		});
 
 		// bundles all files in the current directory matching `*.test`
+		// @ts-ignore
 		const importAll = (r: __WebpackModuleApi.RequireContext) => r.keys().forEach(r);
+		// @ts-ignore
 		importAll(require.context('.', true, /\.test$/));
 
 		try {

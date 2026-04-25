@@ -1,4 +1,4 @@
-[noble]
+[resolute]
 mirror = "http://us.archive.ubuntu.com/ubuntu/"
 areas = [""]
 components = ["main"]

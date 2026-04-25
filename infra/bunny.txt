@@ -19,4 +19,4 @@ Index File  ->  index.html
 Robots File ->  robots.txt
 
 lftp sftp://BUCKET@storage.bunnycdn.com
-> mirror -R -P 50 --no-symlinks _build/out-vscode-web-min/
+> mirror -R -P 50 --no-symlinks _build/out-vscode-web-min/.

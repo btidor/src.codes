@@ -16,6 +16,6 @@ FROM alpine:latest
 WORKDIR /var/src.codes
 COPY --from=build /usr/src/myapp/target/x86_64-unknown-linux-musl/release/fzf .
 
-ADD https://meta.src.codes/noble/paths.fzf .
+ADD https://meta.src.codes/resolute/paths.fzf .
 
 ENTRYPOINT ["/var/src.codes/fzf"]

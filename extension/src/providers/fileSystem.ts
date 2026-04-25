@@ -8,7 +8,7 @@ const readme = `# src.codes
 
 src.codes is an online code browser for the Ubuntu package archive.
 
-* Browse the source code for all 2,390 packages in \`main\`.
+* Browse the source code for all 2,405 packages in \`main\`.
 
 * Navigate the entire repository with standard VS Code tools:
 
@@ -17,7 +17,7 @@ src.codes is an online code browser for the Ubuntu package archive.
    - cross-package go-to-definition (\`Ctrl-F12\`; C only)
 
 ~> https://github.com/btidor/src.codes
-`
+`;
 
 export default class FileSystemProvider implements vscode.FileSystemProvider {
     private packageClient: PackageClient;
@@ -41,9 +41,9 @@ export default class FileSystemProvider implements vscode.FileSystemProvider {
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
         return this.packageClient.parseUri(uri).then(path => {
             if (path === "" || path === ".vscode") {
-                return {type: vscode.FileType.Directory, ctime:0, mtime:0, size:0};
+                return { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 };
             } else if (path === ".vscode/README") {
-                return {type: vscode.FileType.File, ctime:0, mtime:0, size:0};
+                return { type: vscode.FileType.File, ctime: 0, mtime: 0, size: 0 };
             } else {
                 // Within package
                 return this.packageClient.listPackageContents(path.pkg).then(
