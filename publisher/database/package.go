@@ -60,7 +60,7 @@ func (db *Database) ListExistingPackages(distro string, pkgs map[string]apt.Pack
 
 	var existing = make(map[string]PackageVersion)
 	for i := 0; i < len(plist); i += db.batchSize {
-		var values []interface{}
+		var values []any
 		var query string = "SELECT id, pkg_name, pkg_version, sc_epoch" +
 			" FROM package_versions" +
 			" WHERE distro = $1 AND (pkg_name, pkg_version) IN ("
@@ -123,7 +123,7 @@ func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
 
 	// Ensure all packages are present in database
 	for i := 0; i < len(pvs); i += db.batchSize {
-		var values []interface{}
+		var values []any
 		var query string = "REPLACE INTO distribution_contents" +
 			" (distro, pkg_name, current) VALUES "
 		var n int = 1
@@ -148,7 +148,7 @@ func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
 		seen[p.Name] = true
 	}
 
-	var toDelete []interface{}
+	var toDelete []any
 	db.mutex.Unlock()
 	for _, q := range db.ListDistroContents(distro) {
 		if _, found := seen[q.Name]; !found {

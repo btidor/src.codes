@@ -246,7 +246,7 @@ func (up *Uploader) UploadCodesearchPackageIndex(pkg apt.Package, codesearch, so
 }
 
 func (up *Uploader) UploadPackageList(distro string, pkgvers []database.PackageVersion) {
-	var list = make(map[string]interface{})
+	var list = make(map[string]any)
 	for _, pv := range pkgvers {
 		list[pv.Name] = struct {
 			Version string `json:"version"`

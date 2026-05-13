@@ -14,7 +14,7 @@ func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
 
 	var deduped []analysis.File
 	for i := 0; i < len(files); i += db.batchSize {
-		var values []interface{}
+		var values []any
 		var query string = "SELECT DISTINCT short_hash FROM files" +
 			" WHERE short_hash IN ("
 		var n int = 1
@@ -58,7 +58,7 @@ func (db *Database) RecordHashes(hashes [][32]byte) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	var values []interface{}
+	var values []any
 	var query string = "INSERT INTO files (short_hash) VALUES "
 	for i, hash := range hashes {
 		values = append(values, convertHash(hash))

@@ -136,11 +136,12 @@ func (g grepHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	distro := parts[1]
-	if distro == "" {
+	switch distro {
+	case "":
 		// Requests to `/` show a welcome message
 		fmt.Fprintf(w, "Hello from grep@%s!\n", commit)
 		return
-	} else if distro == "robots.txt" {
+	case "robots.txt":
 		// Requests to `/robots.txt` return our robots config
 		fmt.Fprintf(w, "User-agent: *\nDisallow: /\n")
 		return

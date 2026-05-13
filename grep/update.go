@@ -30,7 +30,7 @@ func updateDistro(distro string) {
 	var mu sync.Mutex
 	var errored bool // protected by `mu`
 
-	for w := 0; w < downloadThreads; w++ {
+	for w := range downloadThreads {
 		wg.Add(1)
 		go func(w int, jobs <-chan Package, wg *sync.WaitGroup) {
 			defer wg.Done()

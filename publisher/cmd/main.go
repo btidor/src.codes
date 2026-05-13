@@ -139,7 +139,7 @@ func processDistro(distro publisher.Distro) (errored bool) {
 	var jobs = make(chan apt.Package)
 	var results = make(chan database.PackageVersion, len(packages))
 	var wg sync.WaitGroup
-	for w := 0; w < pkgThreads; w++ {
+	for w := range pkgThreads {
 		wg.Add(1)
 		go func(w int, jobs <-chan apt.Package, wg *sync.WaitGroup) {
 			defer wg.Done()
@@ -228,7 +228,7 @@ func processPackage(pkg apt.Package) (_ database.PackageVersion, errored bool) {
 	var count atomic.Int64
 	var wg sync.WaitGroup
 	jobs := make(chan analysis.File)
-	for w := 0; w < uploadThreads; w++ {
+	for w := range uploadThreads {
 		wg.Add(1)
 		go func(w int, jobs <-chan analysis.File, wg *sync.WaitGroup) {
 			defer wg.Done()
