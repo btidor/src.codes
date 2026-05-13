@@ -2,7 +2,6 @@ package database
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/btidor/src.codes/publisher/analysis"
@@ -30,19 +29,19 @@ func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
 			panic(err)
 		}
 
-		existing := make(map[string]bool, db.batchSize)
+		existing := make(map[int64]bool, db.batchSize)
 		for rows.Next() {
-			var hash []byte
+			var hash int64
 			if err := rows.Scan(&hash); err != nil {
 				rows.Close()
 				panic(err)
 			}
-			existing[hex.EncodeToString(hash)] = true
+			existing[hash] = true
 		}
 
 		for j := i; j < i+db.batchSize && j < len(files); j++ {
-			h := hex.EncodeToString(files[j].SHA256[:8])
-			if _, found := existing[h]; !found {
+			hash := convertHash(files[j].SHA256)
+			if _, found := existing[hash]; !found {
 				deduped = append(deduped, files[j])
 			}
 		}
