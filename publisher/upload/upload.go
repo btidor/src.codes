@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 
 	"github.com/btidor/src.codes/publisher"
 	"github.com/btidor/src.codes/publisher/analysis"
@@ -50,17 +51,27 @@ func NewUploader(lsvar, catvar, metavar string, downloadThreads int) (*Uploader,
 func (up *Uploader) UploadFile(f analysis.File) {
 	hex := hex.EncodeToString(f.SHA256[:])
 	if f.Size == 0 && hex != emptySHA {
-		err := fmt.Errorf("unexpected empty file %#v", f)
-		panic(err)
+		panic(fmt.Errorf("unexpected empty file %#v", f))
 	}
 	file, err := os.Open(f.LocalPath)
 	if err != nil {
 		panic(err)
 	}
 	remote := path.Join(hex[0:2], hex[0:4], hex)
-	if err := up.cat.Put(remote, file, ""); err != nil {
-		panic(err)
+	// Unfortunately, Bunny.net has rare spikes of 400s (several instances at
+	// once, across different packages). Or could there be something wrong with
+	// our connection pooling?
+	var delay = 1 * time.Second
+	for range 5 {
+		err = up.cat.Put(remote, file, "")
+		if err == nil {
+			return
+		}
+		fmt.Printf("upload error %q - %s\n", err.Error(), f.LocalPath)
+		time.Sleep(delay)
+		delay *= 2
 	}
+	panic(err)
 }
 
 func (up *Uploader) UploadTree(a analysis.Archive) {
