@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"os"
+	"sync"
 
 	_ "embed"
 
@@ -13,6 +14,7 @@ import (
 type Database struct {
 	*sql.DB
 	batchSize int
+	mutex     sync.Mutex
 }
 
 //go:embed schema.sql
@@ -39,5 +41,5 @@ func Connect(filename string, batchSize int) (*Database, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Database{db, batchSize}, nil
+	return &Database{db, batchSize, sync.Mutex{}}, nil
 }

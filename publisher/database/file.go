@@ -9,6 +9,9 @@ import (
 )
 
 func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	var deduped []analysis.File
 	for i := 0; i < len(files); i += db.batchSize {
 		var values []interface{}
@@ -31,6 +34,7 @@ func (db *Database) DeduplicateFiles(files []analysis.File) []analysis.File {
 		for rows.Next() {
 			var hash []byte
 			if err := rows.Scan(&hash); err != nil {
+				rows.Close()
 				panic(err)
 			}
 			existing[hex.EncodeToString(hash)] = true
@@ -51,6 +55,8 @@ func (db *Database) RecordHashes(hashes [][32]byte) {
 	if len(hashes) < 1 {
 		return
 	}
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 
 	var values []interface{}
 	var query string = "INSERT INTO files (short_hash) VALUES "

@@ -16,6 +16,9 @@ type PackageVersion struct {
 }
 
 func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	_, err := db.Exec(
 		"INSERT INTO package_versions (distro, pkg_name, pkg_version, sc_epoch)"+
 			" VALUES ($1, $2, $3, $4)"+
@@ -47,6 +50,9 @@ func (db *Database) RecordPackageVersion(a analysis.Archive) PackageVersion {
 }
 
 func (db *Database) ListExistingPackages(distro string, pkgs map[string]apt.Package) map[string]PackageVersion {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	var plist []apt.Package
 	for _, pkg := range pkgs {
 		plist = append(plist, pkg)
@@ -75,6 +81,7 @@ func (db *Database) ListExistingPackages(distro string, pkgs map[string]apt.Pack
 		for rows.Next() {
 			pv := PackageVersion{}
 			if err := rows.Scan(&pv.ID, &pv.Name, &pv.Version, &pv.Epoch); err != nil {
+				rows.Close()
 				panic(err)
 			}
 			existing[pv.Name] = pv
@@ -84,6 +91,9 @@ func (db *Database) ListExistingPackages(distro string, pkgs map[string]apt.Pack
 }
 
 func (db *Database) ListDistroContents(distro string) []PackageVersion {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	rows, err := db.Query(
 		"SELECT pv.id, pv.pkg_name, pv.pkg_version, pv.sc_epoch"+
 			" FROM distribution_contents dc"+
@@ -99,6 +109,7 @@ func (db *Database) ListDistroContents(distro string) []PackageVersion {
 	for rows.Next() {
 		pv := PackageVersion{}
 		if err := rows.Scan(&pv.ID, &pv.Name, &pv.Version, &pv.Epoch); err != nil {
+			rows.Close()
 			panic(err)
 		}
 		pvs = append(pvs, pv)
@@ -107,6 +118,9 @@ func (db *Database) ListDistroContents(distro string) []PackageVersion {
 }
 
 func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	// Ensure all packages are present in database
 	for i := 0; i < len(pvs); i += db.batchSize {
 		var values []interface{}
@@ -135,11 +149,13 @@ func (db *Database) UpdateDistroContents(distro string, pvs []PackageVersion) {
 	}
 
 	var toDelete []interface{}
+	db.mutex.Unlock()
 	for _, q := range db.ListDistroContents(distro) {
 		if _, found := seen[q.Name]; !found {
 			toDelete = append(toDelete, q.ID)
 		}
 	}
+	db.mutex.Lock()
 
 	if len(toDelete) > 0 {
 		var query string = "DELETE FROM distribution_contents WHERE ID IN ("
