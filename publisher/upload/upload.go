@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -105,6 +106,15 @@ func (up *Uploader) UploadFzfPackageIndex(pkg apt.Package, fzf analysis.Node) {
 }
 
 func (up *Uploader) ConsolidateFzfIndex(distro string, pkgvers []database.PackageVersion) {
+	var filtered []database.PackageVersion
+	for _, pv := range pkgvers {
+		if strings.HasPrefix(pv.Name, "linux-") || strings.HasPrefix(pv.Name, "llvm-toolchain-") {
+			continue
+		}
+		filtered = append(filtered, pv)
+	}
+	pkgvers = filtered
+
 	// Download and concatenate indexes for each package
 	var consolidated = new(bytes.Buffer)
 	enc := msgpack.NewEncoder(consolidated)
